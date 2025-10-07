@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "723582055871",
+    "project_id": "tomahawk-6630f",
+    "storage_bucket": "tomahawk-6630f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:723582055871:android:ca7d9c73e269aa1813dd0a",
+        "android_client_info": {
+          "package_name": "com.example.echo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhcEL4aEvQJj4VPZ7LTwHwcxrcw86oWv8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

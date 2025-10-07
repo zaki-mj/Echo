@@ -6,7 +6,10 @@ class ChatListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Recent Chats")),
+      appBar: AppBar(
+        title: const Text("Recent Chats"),
+        centerTitle: true,
+      ),
       body: const Center(child: Text("No chats yet")),
     );
   }
