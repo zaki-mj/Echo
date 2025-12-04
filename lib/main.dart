@@ -20,12 +20,3 @@ void main() async {
     ),
   );
 }
-
-
-  // WidgetsFlutterBinding.ensureInitialized();
-  // await Firebase.initializeApp();
-  // print('firebase initialized');
-  // SystemChrome.setSystemUIOverlayStyle(
-  // const SystemUiOverlayStyle(systemNavigationBarColor: Colors.transparent));
-  // SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  // runApp(const MyApp());
