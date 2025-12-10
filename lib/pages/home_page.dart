@@ -1,78 +1,311 @@
-import 'package:echo/widget/side_drawer.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
+import '../providers/app_provider.dart';
+import '../services/firebase_service.dart';
+import '../models/mood_model.dart';
+import '../utils/moon_phase.dart';
+import '../widgets/mood_widget.dart';
+import '../widgets/whisper_preview_widget.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final FirebaseService _firebaseService = FirebaseService();
+  MoodModel? _user1Mood;
+  MoodModel? _user2Mood;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMoods();
+  }
+
+  void _loadMoods() {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final settings = appProvider.settings;
+    final currentUserId = appProvider.currentUserId;
+
+    if (settings == null || currentUserId == null) return;
+
+    final partnerId = settings.getPartnerId(currentUserId);
+
+    // Load current user's mood
+    _firebaseService.watchMoods(currentUserId).listen((moods) async {
+      if (mounted && moods.isNotEmpty) {
+        final mood = moods.first;
+        // Check if mood needs to be reset
+        if (mood.resetAt != null && DateTime.now().isAfter(mood.resetAt!)) {
+          // Mood has expired, user needs to set a new one
+          setState(() {
+            _user1Mood = null;
+          });
+        } else {
+          setState(() {
+            _user1Mood = mood;
+          });
+        }
+      } else if (mounted) {
+        setState(() {
+          _user1Mood = null;
+        });
+      }
+    });
+
+    // Load partner's mood if partner exists
+    if (partnerId != null && partnerId.isNotEmpty) {
+      _firebaseService.watchMoods(partnerId).listen((moods) {
+        if (mounted && moods.isNotEmpty) {
+          final mood = moods.first;
+          // Check if mood needs to be reset
+          if (mood.resetAt != null && DateTime.now().isAfter(mood.resetAt!)) {
+            setState(() {
+              _user2Mood = null;
+            });
+          } else {
+            setState(() {
+              _user2Mood = mood;
+            });
+          }
+        } else if (mounted) {
+          setState(() {
+            _user2Mood = null;
+          });
+        }
+      });
+    }
+  }
+
+  int _calculateNightsSince(DateTime meetingDate) {
+    return DateTime.now().difference(meetingDate).inDays;
+  }
+
+  Future<void> _handleMoodDoubleTap(String partnerNickname) async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    if (appProvider.settings?.touchOfNightEnabled ?? false) {
+      HapticFeedback.mediumImpact();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$partnerNickname poked you'),
+            backgroundColor: appProvider.accentColor,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showMoodSelector(BuildContext context, AppProvider appProvider) {
+    final moods = ['bat', 'moon', 'rose', 'thorns', 'blood', 'crown', 'skull', 'star'];
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).cardColor,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Select Your Mood',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            GridView.builder(
+              shrinkWrap: true,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: moods.length,
+              itemBuilder: (context, index) {
+                final mood = moods[index];
+                return GestureDetector(
+                  onTap: () async {
+                    final currentUserId = appProvider.currentUserId;
+                    final settings = appProvider.settings;
+                    if (currentUserId != null && settings != null) {
+                      final resetAt = DateTime.now().add(settings.moodResetInterval);
+                      final moodModel = MoodModel(
+                        userId: currentUserId,
+                        mood: mood,
+                        timestamp: DateTime.now(),
+                        resetAt: resetAt,
+                      );
+                      await _firebaseService.saveMood(moodModel);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    }
+                  },
+                  child: Card(
+                    child: Center(
+                      child: Text(
+                        _getMoodEmoji(mood),
+                        style: const TextStyle(fontSize: 32),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getMoodEmoji(String mood) {
+    switch (mood.toLowerCase()) {
+      case 'bat':
+        return '🦇';
+      case 'moon':
+        return '🌙';
+      case 'rose':
+        return '🌹';
+      case 'thorns':
+        return '🌵';
+      case 'blood':
+        return '🩸';
+      case 'crown':
+        return '👑';
+      case 'skull':
+        return '💀';
+      case 'star':
+        return '⭐';
+      default:
+        return '🦇';
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Home'),
-      ),
-      drawer: const SideDrawer(),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          _buildMoodsSection(context),
-          const SizedBox(height: 20),
-          _buildWhisperSection(context),
-          const SizedBox(height: 20),
-          _buildEternalCounters(context),
-          const SizedBox(height: 20),
-          _buildChatTeaser(context),
-        ],
-      ),
-    );
-  }
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, _) {
+        final settings = appProvider.settings;
+        final accentColor = appProvider.accentColor;
 
-  Widget _buildMoodsSection(BuildContext context) {
-    // Placeholder for side-by-side moods
-    return const Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        Column(
-          children: [
-            Icon(Icons.person, size: 50),
-            Text("Your Mood"),
-          ],
-        ),
-        Column(
-          children: [
-            Icon(Icons.favorite, size: 50),
-            Text("Partner's Mood"),
-          ],
-        ),
-      ],
-    );
-  }
+        if (settings == null) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        }
 
-  Widget _buildWhisperSection(BuildContext context) {
-    // Placeholder for Send Whisper
-    return ElevatedButton(
-      onPressed: () {},
-      child: const Text("Send Whisper"),
-    );
-  }
+        final nightsSince = _calculateNightsSince(settings.meetingDate);
+        final moonEmoji = MoonPhase.getMoonEmoji(DateTime.now());
+        final moonPhase = MoonPhase.getPhaseName(DateTime.now());
 
-  Widget _buildEternalCounters(BuildContext context) {
-    // Placeholder for eternal counters
-    return const Column(
-      children: [
-        Text("Nights since our blood crossed: 1,247"),
-        Text("Unbroken flame: 312 days"),
-      ],
-    );
-  }
+        return Scaffold(
+          appBar: AppBar(
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(moonEmoji),
+                const SizedBox(width: 8),
+                Text(moonPhase),
+              ],
+            ),
+            centerTitle: true,
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Eternal Counter
+                Card(
+                  color: accentColor.withOpacity(0.2),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Nights since our blood crossed:',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '$nightsSince',
+                          style: Theme.of(context).textTheme.displayLarge,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
 
-  Widget _buildChatTeaser(BuildContext context) {
-    // Placeholder for chat teaser
-    return const Card(
-      child: ListTile(
-        title: Text("Today's Whispers"),
-        subtitle: Text("Your love whispered sweet nothings..."),
-        trailing: Icon(Icons.arrow_forward_ios),
-      ),
+                // Side-by-side Moods
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          // Allow user to set their mood
+                          _showMoodSelector(context, appProvider);
+                        },
+                        onDoubleTap: () {
+                          final partnerId = settings.getPartnerId(appProvider.currentUserId ?? '');
+                          if (partnerId != null && partnerId.isNotEmpty) {
+                            _handleMoodDoubleTap(settings.user2Nickname);
+                          }
+                        },
+                        child: MoodWidget(
+                          nickname: settings.user1Nickname,
+                          mood: _user1Mood,
+                          isCurrentUser: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: GestureDetector(
+                        onDoubleTap: () => _handleMoodDoubleTap(
+                          settings.user1Nickname,
+                        ),
+                        child: MoodWidget(
+                          nickname: settings.user2Nickname,
+                          mood: _user2Mood,
+                          isCurrentUser: false,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Quick Send Whisper
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/chat');
+                  },
+                  icon: const Icon(Icons.send),
+                  label: const Text('Send Whisper'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accentColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Today's Chat Preview
+                WhisperPreviewWidget(),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
+

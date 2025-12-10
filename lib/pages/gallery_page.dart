@@ -1,68 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
 
 class GalleryPage extends StatelessWidget {
   const GalleryPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nocturnal Shared Album'),
-      ),
-      body: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: 4,
-          mainAxisSpacing: 4,
-        ),
-        itemCount: 9, // Placeholder for 9 images
-        itemBuilder: (context, index) {
-          return InkWell(
-            onTap: () {
-              // View image
-            },
-            child: Card(
-              clipBehavior: Clip.antiAlias,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    'https://picsum.photos/200/300?random=$index', // Placeholder image
-                    fit: BoxFit.cover,
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, _) {
+        final accentColor = appProvider.accentColor;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Nocturnal Gallery'),
+          ),
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.photo_library_outlined,
+                  size: 80,
+                  color: accentColor.withOpacity(0.5),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Coming Soon',
+                  style: Theme.of(context).textTheme.displayMedium,
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    'The shared gallery feature will be available in a future update. Your memories will be preserved in the eternal night.',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                    textAlign: TextAlign.center,
                   ),
-                  const Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.transparent, Colors.black54],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text(
-                          'Moonlit Memory', // Placeholder caption
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Add photo
-        },
-        child: const Icon(Icons.add_a_photo),
-      ),
+          ),
+        );
+      },
     );
   }
 }
+
