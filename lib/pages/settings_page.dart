@@ -23,14 +23,13 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isDarkMode = true;
   bool _touchOfNightEnabled = true;
   bool _sealedLettersEnabled = true;
-  bool _galleryAutoSync = true;
 
   @override
   void initState() {
     super.initState();
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final settings = appProvider.settings;
-    
+
     if (settings != null) {
       _user1NicknameController = TextEditingController(text: settings.user1Nickname);
       _user2NicknameController = TextEditingController(text: settings.user2Nickname);
@@ -41,7 +40,6 @@ class _SettingsPageState extends State<SettingsPage> {
       _isDarkMode = settings.isDarkMode;
       _touchOfNightEnabled = settings.touchOfNightEnabled;
       _sealedLettersEnabled = settings.sealedLettersEnabled;
-      _galleryAutoSync = settings.galleryAutoSync;
     } else {
       _user1NicknameController = TextEditingController();
       _user2NicknameController = TextEditingController();
@@ -83,7 +81,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final currentSettings = appProvider.settings;
     final currentUserId = appProvider.currentUserId;
-    
+
     if (currentSettings == null || currentUserId == null) return;
 
     // Determine if current user is user1 or user2
@@ -104,11 +102,10 @@ class _SettingsPageState extends State<SettingsPage> {
       isDarkMode: _isDarkMode,
       touchOfNightEnabled: _touchOfNightEnabled,
       sealedLettersEnabled: _sealedLettersEnabled,
-      galleryAutoSync: _galleryAutoSync,
     );
 
     await appProvider.updateSettings(newSettings);
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Settings saved')),
@@ -180,9 +177,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ListTile(
                   title: const Text('Your Birthdate'),
                   subtitle: Text(
-                    _user1Birthdate != null
-                        ? DateFormat('MMMM d, y').format(_user1Birthdate!)
-                        : 'Not set',
+                    _user1Birthdate != null ? DateFormat('MMMM d, y').format(_user1Birthdate!) : 'Not set',
                   ),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () => _selectDate(
@@ -193,9 +188,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ListTile(
                   title: const Text('Partner\'s Birthdate'),
                   subtitle: Text(
-                    _user2Birthdate != null
-                        ? DateFormat('MMMM d, y').format(_user2Birthdate!)
-                        : 'Not set',
+                    _user2Birthdate != null ? DateFormat('MMMM d, y').format(_user2Birthdate!) : 'Not set',
                   ),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () => _selectDate(
@@ -209,9 +202,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ListTile(
                   title: const Text('Meeting Date'),
                   subtitle: Text(
-                    _meetingDate != null
-                        ? DateFormat('MMMM d, y').format(_meetingDate!)
-                        : 'Not set',
+                    _meetingDate != null ? DateFormat('MMMM d, y').format(_meetingDate!) : 'Not set',
                   ),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () => _selectDate(
@@ -239,9 +230,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           color: GothicTheme.accentColors[index],
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: _accentColorIndex == index
-                                ? Colors.white
-                                : Colors.transparent,
+                            color: _accentColorIndex == index ? Colors.white : Colors.transparent,
                             width: 3,
                           ),
                         ),
@@ -262,24 +251,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 SwitchListTile(
                   title: const Text('Touch of Night (Haptics)'),
                   value: _touchOfNightEnabled,
-                  onChanged: (value) =>
-                      setState(() => _touchOfNightEnabled = value),
+                  onChanged: (value) => setState(() => _touchOfNightEnabled = value),
                 ),
 
                 // Sealed Letters
                 SwitchListTile(
                   title: const Text('Sealed Letters'),
                   value: _sealedLettersEnabled,
-                  onChanged: (value) =>
-                      setState(() => _sealedLettersEnabled = value),
-                ),
-
-                // Gallery Auto Sync
-                SwitchListTile(
-                  title: const Text('Gallery Auto Sync'),
-                  value: _galleryAutoSync,
-                  onChanged: (value) =>
-                      setState(() => _galleryAutoSync = value),
+                  onChanged: (value) => setState(() => _sealedLettersEnabled = value),
                 ),
 
                 const SizedBox(height: 32),
@@ -305,4 +284,3 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 }
-

@@ -173,12 +173,8 @@ class _ChatPageState extends State<ChatPage> {
           );
         }
 
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Whispers'),
-          ),
-          body: Column(
-            children: [
+        return Column(
+          children: [
               // Messages List
               Expanded(
                 child: _whispers.isEmpty
@@ -259,8 +255,7 @@ class _ChatPageState extends State<ChatPage> {
                   ],
                 ),
               ),
-            ],
-          ),
+          ],
         );
       },
     );

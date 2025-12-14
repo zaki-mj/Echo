@@ -41,55 +41,27 @@ class FirebaseService {
 
   // Settings
   Future<void> saveSettings(SettingsModel settings) async {
-    await _firestore
-        .collection('pairs')
-        .doc(settings.pairId)
-        .set(settings.toMap(), SetOptions(merge: true));
+    await _firestore.collection('pairs').doc(settings.pairId).set(settings.toMap(), SetOptions(merge: true));
   }
 
   Stream<SettingsModel?> watchSettings(String pairId) {
-    return _firestore
-        .collection('pairs')
-        .doc(pairId)
-        .snapshots()
-        .map((snapshot) => snapshot.exists
-            ? SettingsModel.fromMap(snapshot.data()!)
-            : null);
+    return _firestore.collection('pairs').doc(pairId).snapshots().map((snapshot) => snapshot.exists ? SettingsModel.fromMap(snapshot.data()!) : null);
   }
 
   // Moods
   Future<void> saveMood(MoodModel mood) async {
-    await _firestore
-        .collection('moods')
-        .add(mood.toMap());
+    await _firestore.collection('moods').add(mood.toMap());
   }
 
   Stream<List<MoodModel>> watchMoods(String userId) {
-    return _firestore
-        .collection('moods')
-        .where('userId', isEqualTo: userId)
-        .orderBy('timestamp', descending: true)
-        .limit(1)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => MoodModel.fromMap(doc.data()))
-            .toList());
+    return _firestore.collection('moods').where('userId', isEqualTo: userId).orderBy('timestamp', descending: true).limit(1).snapshots().map((snapshot) => snapshot.docs.map((doc) => MoodModel.fromMap(doc.data())).toList());
   }
 
   Stream<List<MoodModel>> watchMoodsForDateRange(
     DateTime start,
     DateTime end,
   ) {
-    return _firestore
-        .collection('moods')
-        .where('timestamp',
-            isGreaterThanOrEqualTo: start,
-            isLessThanOrEqualTo: end)
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => MoodModel.fromMap(doc.data()))
-            .toList());
+    return _firestore.collection('moods').where('timestamp', isGreaterThanOrEqualTo: start, isLessThanOrEqualTo: end).orderBy('timestamp', descending: true).snapshots().map((snapshot) => snapshot.docs.map((doc) => MoodModel.fromMap(doc.data())).toList());
   }
 
   // Whispers
@@ -103,51 +75,38 @@ class FirebaseService {
       // If no partner yet, return empty stream
       return Stream.value([]);
     }
-    
+
     // Query messages where current user is sender or receiver, then filter for partner
-    return _firestore
-        .collection('whispers')
-        .where('senderId', whereIn: [userId1, userId2])
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      final allDocs = <WhisperModel>[];
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final senderId = data['senderId'] as String?;
-        final receiverId = data['receiverId'] as String?;
-        
-        // Only include messages between these two users
-        if ((senderId == userId1 && receiverId == userId2) ||
-            (senderId == userId2 && receiverId == userId1)) {
-          allDocs.add(WhisperModel.fromMap({
-            ...data,
-            'id': doc.id,
-          }));
-        }
-      }
-      return allDocs;
-    });
+    return _firestore.collection('whispers').where('senderId', whereIn: [userId1, userId2]).orderBy('timestamp', descending: true).snapshots().map((snapshot) {
+          final allDocs = <WhisperModel>[];
+          for (final doc in snapshot.docs) {
+            final data = doc.data();
+            final senderId = data['senderId'] as String?;
+            final receiverId = data['receiverId'] as String?;
+
+            // Only include messages between these two users
+            if ((senderId == userId1 && receiverId == userId2) || (senderId == userId2 && receiverId == userId1)) {
+              allDocs.add(WhisperModel.fromMap({
+                ...data,
+                'id': doc.id,
+              }));
+            }
+          }
+          return allDocs;
+        });
   }
 
   Future<void> markWhisperDelivered(String whisperId) async {
-    await _firestore
-        .collection('whispers')
-        .doc(whisperId)
-        .update({'isDelivered': true});
+    await _firestore.collection('whispers').doc(whisperId).update({'isDelivered': true});
   }
 
   Future<void> markWhisperRead(String whisperId) async {
-    await _firestore
-        .collection('whispers')
-        .doc(whisperId)
-        .update({'isRead': true});
+    await _firestore.collection('whispers').doc(whisperId).update({'isRead': true});
   }
 
   // Sealed Letters
   Future<String> createSealedLetter(SealedLetterModel letter) async {
-    final docRef =
-        await _firestore.collection('sealedLetters').add(letter.toMap());
+    final docRef = await _firestore.collection('sealedLetters').add(letter.toMap());
     return docRef.id;
   }
 
@@ -158,38 +117,29 @@ class FirebaseService {
     if (userId2.isEmpty) {
       return Stream.value([]);
     }
-    
+
     // Query letters where either user is sender, then filter for partner
-    return _firestore
-        .collection('sealedLetters')
-        .where('senderId', whereIn: [userId1, userId2])
-        .orderBy('revealAt', descending: false)
-        .snapshots()
-        .map((snapshot) {
-      final allDocs = <SealedLetterModel>[];
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final senderId = data['senderId'] as String?;
-        final receiverId = data['receiverId'] as String?;
-        
-        // Only include letters between these two users
-        if ((senderId == userId1 && receiverId == userId2) ||
-            (senderId == userId2 && receiverId == userId1)) {
-          allDocs.add(SealedLetterModel.fromMap({
-            ...data,
-            'id': doc.id,
-          }));
-        }
-      }
-      return allDocs;
-    });
+    return _firestore.collection('sealedLetters').where('senderId', whereIn: [userId1, userId2]).orderBy('revealAt', descending: false).snapshots().map((snapshot) {
+          final allDocs = <SealedLetterModel>[];
+          for (final doc in snapshot.docs) {
+            final data = doc.data();
+            final senderId = data['senderId'] as String?;
+            final receiverId = data['receiverId'] as String?;
+
+            // Only include letters between these two users
+            if ((senderId == userId1 && receiverId == userId2) || (senderId == userId2 && receiverId == userId1)) {
+              allDocs.add(SealedLetterModel.fromMap({
+                ...data,
+                'id': doc.id,
+              }));
+            }
+          }
+          return allDocs;
+        });
   }
 
   Future<void> markLetterRevealed(String letterId) async {
-    await _firestore
-        .collection('sealedLetters')
-        .doc(letterId)
-        .update({'isRevealed': true});
+    await _firestore.collection('sealedLetters').doc(letterId).update({'isRevealed': true});
   }
 
   // Storage for voice/photo
@@ -203,4 +153,3 @@ class FirebaseService {
     await _storage.ref().child(path).delete();
   }
 }
-

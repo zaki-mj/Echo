@@ -164,38 +164,48 @@ class _CalendarPageState extends State<CalendarPage> {
         final firstDayWeekday = firstDayOfMonth.weekday;
         final daysInMonth = lastDayOfMonth.day;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(DateFormat('MMMM y').format(_selectedMonth)),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: () {
-                  setState(() {
-                    _selectedMonth = DateTime(
-                      _selectedMonth.year,
-                      _selectedMonth.month - 1,
-                    );
-                  });
-                  _loadMonthData();
-                },
+        return Column(
+          children: [
+            // Month Navigation Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    onPressed: () {
+                      setState(() {
+                        _selectedMonth = DateTime(
+                          _selectedMonth.year,
+                          _selectedMonth.month - 1,
+                        );
+                      });
+                      _loadMonthData();
+                    },
+                  ),
+                  Text(
+                    DateFormat('MMMM y').format(_selectedMonth),
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    onPressed: () {
+                      setState(() {
+                        _selectedMonth = DateTime(
+                          _selectedMonth.year,
+                          _selectedMonth.month + 1,
+                        );
+                      });
+                      _loadMonthData();
+                    },
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: () {
-                  setState(() {
-                    _selectedMonth = DateTime(
-                      _selectedMonth.year,
-                      _selectedMonth.month + 1,
-                    );
-                  });
-                  _loadMonthData();
-                },
-              ),
-            ],
-          ),
-          body: GridView.builder(
-            padding: const EdgeInsets.all(16),
+            ),
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
               crossAxisSpacing: 4,
@@ -262,7 +272,9 @@ class _CalendarPageState extends State<CalendarPage> {
                 ),
               );
             },
-          ),
+              ),
+            ),
+          ],
         );
       },
     );

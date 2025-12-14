@@ -13,7 +13,6 @@ class SettingsModel {
   final Duration moodResetInterval;
   final bool touchOfNightEnabled;
   final bool sealedLettersEnabled;
-  final bool galleryAutoSync;
   final DateTime lastUpdated;
 
   SettingsModel({
@@ -31,7 +30,6 @@ class SettingsModel {
     this.moodResetInterval = const Duration(days: 1),
     this.touchOfNightEnabled = true,
     this.sealedLettersEnabled = true,
-    this.galleryAutoSync = true,
     required this.lastUpdated,
   });
 
@@ -63,7 +61,6 @@ class SettingsModel {
       'moodResetIntervalHours': moodResetInterval.inHours,
       'touchOfNightEnabled': touchOfNightEnabled,
       'sealedLettersEnabled': sealedLettersEnabled,
-      'galleryAutoSync': galleryAutoSync,
       'lastUpdated': lastUpdated.toIso8601String(),
     };
   }
@@ -92,7 +89,6 @@ class SettingsModel {
       ),
       touchOfNightEnabled: map['touchOfNightEnabled'] ?? true,
       sealedLettersEnabled: map['sealedLettersEnabled'] ?? true,
-      galleryAutoSync: map['galleryAutoSync'] ?? true,
       lastUpdated: DateTime.parse(map['lastUpdated']),
     );
   }
@@ -112,7 +108,6 @@ class SettingsModel {
     Duration? moodResetInterval,
     bool? touchOfNightEnabled,
     bool? sealedLettersEnabled,
-    bool? galleryAutoSync,
     DateTime? lastUpdated,
   }) {
     return SettingsModel(
@@ -130,7 +125,6 @@ class SettingsModel {
       moodResetInterval: moodResetInterval ?? this.moodResetInterval,
       touchOfNightEnabled: touchOfNightEnabled ?? this.touchOfNightEnabled,
       sealedLettersEnabled: sealedLettersEnabled ?? this.sealedLettersEnabled,
-      galleryAutoSync: galleryAutoSync ?? this.galleryAutoSync,
       lastUpdated: lastUpdated ?? DateTime.now(),
     );
   }

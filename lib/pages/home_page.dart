@@ -203,49 +203,60 @@ class _HomePageState extends State<HomePage> {
         final moonEmoji = MoonPhase.getMoonEmoji(DateTime.now());
         final moonPhase = MoonPhase.getPhaseName(DateTime.now());
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(moonEmoji),
-                const SizedBox(width: 8),
-                Text(moonPhase),
-              ],
-            ),
-            centerTitle: true,
-          ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Eternal Counter
-                Card(
-                  color: accentColor.withOpacity(0.2),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Nights since our blood crossed:',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '$nightsSince',
-                          style: Theme.of(context).textTheme.displayLarge,
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Moon Phase Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      moonEmoji,
+                      style: const TextStyle(fontSize: 24),
                     ),
+                    const SizedBox(width: 12),
+                    Text(
+                      moonPhase,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
+              ),
+              // Eternal Counter
+              Card(
+                color: accentColor.withOpacity(0.2),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Nights since our blood crossed:',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$nightsSince',
+                        style: Theme.of(context).textTheme.displayLarge,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 24),
+              ),
+              const SizedBox(height: 24),
 
-                // Side-by-side Moods
-                Row(
+              // Side-by-side Moods
+              Row(
                   children: [
                     Expanded(
                       child: GestureDetector(
@@ -281,10 +292,10 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-                // Quick Send Whisper
-                ElevatedButton.icon(
+              // Quick Send Whisper
+              ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pushNamed(context, '/chat');
                   },
@@ -296,15 +307,38 @@ class _HomePageState extends State<HomePage> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
-                const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-                // Today's Chat Preview
-                WhisperPreviewWidget(),
-              ],
-            ),
+              // Today's Chat Preview
+              WhisperPreviewWidget(),
+            ],
           ),
         );
       },
+    );
+  }
+  
+  // Helper widget to show moon phase in a custom AppBar if needed
+  Widget _buildMoonPhaseHeader() {
+    final moonEmoji = MoonPhase.getMoonEmoji(DateTime.now());
+    final moonPhase = MoonPhase.getPhaseName(DateTime.now());
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            moonEmoji,
+            style: const TextStyle(fontSize: 20),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            moonPhase,
+            style: const TextStyle(fontSize: 16),
+          ),
+        ],
+      ),
     );
   }
 }

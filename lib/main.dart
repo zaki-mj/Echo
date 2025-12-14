@@ -6,7 +6,6 @@ import 'theme/gothic_theme.dart';
 import 'pages/home_page.dart';
 import 'pages/chat_page.dart';
 import 'pages/calendar_page.dart';
-import 'pages/gallery_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/sealed_letters_page.dart';
 
@@ -60,7 +59,6 @@ class RavenApp extends StatelessWidget {
                   '/home': (context) => const HomePage(),
                   '/chat': (context) => const ChatPage(),
                   '/calendar': (context) => const CalendarPage(),
-                  '/gallery': (context) => const GalleryPage(),
                   '/settings': (context) => const SettingsPage(),
                   '/sealed-letters': (context) => const SealedLettersPage(),
                 },
@@ -166,54 +164,22 @@ class _MainScreenState extends State<MainScreen> {
           const HomePage(),
           const ChatPage(),
           const CalendarPage(),
-          const GalleryPage(),
+        ];
+
+        // Get the current page's title for the AppBar
+        final pageTitles = [
+          'Home',
+          'Whispers',
+          'Calendar',
         ];
 
         return Scaffold(
-          drawer: Drawer(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                DrawerHeader(
-                  decoration: BoxDecoration(
-                    color: appProvider.accentColor,
-                  ),
-                  child: const Text(
-                    'Raven',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.mail),
-                  title: const Text('Sealed Letters'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(context, '/sealed-letters');
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.settings),
-                  title: const Text('Settings'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(context, '/settings');
-                  },
-                ),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.logout),
-                  title: const Text('Sign Out'),
-                  onTap: () async {
-                    await appProvider.signOut();
-                  },
-                ),
-              ],
-            ),
+          appBar: AppBar(
+            title: Text(pageTitles[_currentIndex]),
+            // Drawer icon will automatically appear when drawer is set
+            automaticallyImplyLeading: true,
           ),
+          drawer: _buildGothicDrawer(context, appProvider),
           body: pages[_currentIndex],
           bottomNavigationBar: NavigationBar(
             selectedIndex: _currentIndex,
@@ -238,15 +204,261 @@ class _MainScreenState extends State<MainScreen> {
                 selectedIcon: Icon(Icons.calendar_today),
                 label: 'Calendar',
               ),
-              NavigationDestination(
-                icon: Icon(Icons.photo_library_outlined),
-                selectedIcon: Icon(Icons.photo_library),
-                label: 'Gallery',
-              ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildGothicDrawer(BuildContext context, AppProvider appProvider) {
+    final settings = appProvider.settings;
+    final accentColor = appProvider.accentColor;
+
+    return Drawer(
+      backgroundColor: Theme.of(context).cardColor,
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          // Beautiful Header with gradient
+          Container(
+            height: 200,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  accentColor,
+                  accentColor.withOpacity(0.7),
+                  accentColor.withOpacity(0.5),
+                ],
+              ),
+            ),
+            child: Stack(
+              children: [
+                // Decorative moon/bat icon
+                Positioned(
+                  right: -20,
+                  top: -20,
+                  child: Icon(
+                    Icons.nightlight_round,
+                    size: 120,
+                    color: Colors.white.withOpacity(0.1),
+                  ),
+                ),
+                // Content
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Raven',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.5),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Eternal Bond',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 16,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      if (settings != null) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.favorite,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${settings.user1Nickname} & ${settings.user2Nickname}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Menu Items
+          const SizedBox(height: 8),
+
+          // Settings - Prominent
+          _buildDrawerTile(
+            context: context,
+            icon: Icons.settings_rounded,
+            title: 'Settings',
+            subtitle: 'Configure your eternal bond',
+            accentColor: accentColor,
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/settings');
+            },
+            isHighlighted: true,
+          ),
+
+          const Divider(height: 1),
+
+          // Sealed Letters
+          _buildDrawerTile(
+            context: context,
+            icon: Icons.mail_outline,
+            title: 'Sealed Letters',
+            subtitle: 'Time-locked messages',
+            accentColor: accentColor,
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/sealed-letters');
+            },
+          ),
+
+          // Home
+          _buildDrawerTile(
+            context: context,
+            icon: Icons.home_outlined,
+            title: 'Home',
+            subtitle: 'Return to home',
+            accentColor: accentColor,
+            onTap: () {
+              Navigator.pop(context);
+              setState(() {
+                _currentIndex = 0;
+              });
+            },
+          ),
+
+          const Divider(height: 1),
+
+          // Sign Out
+          _buildDrawerTile(
+            context: context,
+            icon: Icons.logout_rounded,
+            title: 'Sign Out',
+            subtitle: 'End this session',
+            accentColor: accentColor,
+            onTap: () async {
+              Navigator.pop(context);
+              await appProvider.signOut();
+            },
+            isDestructive: true,
+          ),
+
+          const SizedBox(height: 16),
+
+          // Footer info
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Version 1.0.0',
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodySmall?.color,
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerTile({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required Color accentColor,
+    required VoidCallback onTap,
+    bool isHighlighted = false,
+    bool isDestructive = false,
+  }) {
+    final tileColor = isHighlighted ? accentColor.withOpacity(0.1) : Colors.transparent;
+    final iconColor = isDestructive
+        ? Colors.redAccent
+        : isHighlighted
+            ? accentColor
+            : Theme.of(context).iconTheme.color;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: tileColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isHighlighted ? accentColor.withOpacity(0.2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            color: iconColor,
+            size: 24,
+          ),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+            color: isDestructive ? Colors.redAccent : Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                ),
+              )
+            : null,
+        trailing: Icon(
+          Icons.chevron_right_rounded,
+          color: Theme.of(context).iconTheme.color?.withOpacity(0.5),
+        ),
+        onTap: onTap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
   }
 }
