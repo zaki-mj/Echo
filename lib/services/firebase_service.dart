@@ -41,11 +41,25 @@ class FirebaseService {
 
   // Settings
   Future<void> saveSettings(SettingsModel settings) async {
-    await _firestore.collection('pairs').doc(settings.pairId).set(settings.toMap(), SetOptions(merge: true));
+    try {
+      debugPrint('Saving settings to Firestore: ${settings.pairId}');
+      await _firestore.collection('pairs').doc(settings.pairId).set(settings.toMap(), SetOptions(merge: true));
+      debugPrint('Settings saved successfully');
+    } catch (e, stackTrace) {
+      debugPrint('Error saving settings: $e');
+      debugPrint('Stack trace: $stackTrace');
+      rethrow;
+    }
   }
 
   Stream<SettingsModel?> watchSettings(String pairId) {
     return _firestore.collection('pairs').doc(pairId).snapshots().map((snapshot) => snapshot.exists ? SettingsModel.fromMap(snapshot.data()!) : null);
+  }
+  
+  // Get settings once (for pairing)
+  Future<SettingsModel?> getSettings(String pairId) async {
+    final snapshot = await _firestore.collection('pairs').doc(pairId).get();
+    return snapshot.exists ? SettingsModel.fromMap(snapshot.data()!) : null;
   }
 
   // Moods
@@ -54,14 +68,43 @@ class FirebaseService {
   }
 
   Stream<List<MoodModel>> watchMoods(String userId) {
-    return _firestore.collection('moods').where('userId', isEqualTo: userId).orderBy('timestamp', descending: true).limit(1).snapshots().map((snapshot) => snapshot.docs.map((doc) => MoodModel.fromMap(doc.data())).toList());
+    // Query without orderBy to avoid index requirement, then sort in memory
+    return _firestore
+        .collection('moods')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) {
+      final moods = snapshot.docs
+          .map((doc) => MoodModel.fromMap(doc.data()))
+          .toList();
+      // Sort by timestamp descending and take only the first (most recent)
+      moods.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return moods.take(1).toList();
+    });
   }
 
   Stream<List<MoodModel>> watchMoodsForDateRange(
     DateTime start,
     DateTime end,
   ) {
-    return _firestore.collection('moods').where('timestamp', isGreaterThanOrEqualTo: start, isLessThanOrEqualTo: end).orderBy('timestamp', descending: true).snapshots().map((snapshot) => snapshot.docs.map((doc) => MoodModel.fromMap(doc.data())).toList());
+    // Query with only one where clause to avoid index requirement, then filter and sort in memory
+    return _firestore
+        .collection('moods')
+        .where('timestamp', isGreaterThanOrEqualTo: start)
+        .snapshots()
+        .map((snapshot) {
+      final moods = snapshot.docs
+          .map((doc) => MoodModel.fromMap(doc.data()))
+          .toList();
+      // Filter by end date in memory
+      final filtered = moods.where((mood) => 
+        mood.timestamp.isAfter(start.subtract(const Duration(seconds: 1))) &&
+        mood.timestamp.isBefore(end.add(const Duration(seconds: 1)))
+      ).toList();
+      // Sort by timestamp descending
+      filtered.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return filtered;
+    });
   }
 
   // Whispers
@@ -77,23 +120,31 @@ class FirebaseService {
     }
 
     // Query messages where current user is sender or receiver, then filter for partner
-    return _firestore.collection('whispers').where('senderId', whereIn: [userId1, userId2]).orderBy('timestamp', descending: true).snapshots().map((snapshot) {
-          final allDocs = <WhisperModel>[];
-          for (final doc in snapshot.docs) {
-            final data = doc.data();
-            final senderId = data['senderId'] as String?;
-            final receiverId = data['receiverId'] as String?;
+    // Remove orderBy to avoid index requirement, sort in memory instead
+    return _firestore
+        .collection('whispers')
+        .where('senderId', whereIn: [userId1, userId2])
+        .snapshots()
+        .map((snapshot) {
+      final allDocs = <WhisperModel>[];
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final senderId = data['senderId'] as String?;
+        final receiverId = data['receiverId'] as String?;
 
-            // Only include messages between these two users
-            if ((senderId == userId1 && receiverId == userId2) || (senderId == userId2 && receiverId == userId1)) {
-              allDocs.add(WhisperModel.fromMap({
-                ...data,
-                'id': doc.id,
-              }));
-            }
-          }
-          return allDocs;
-        });
+        // Only include messages between these two users
+        if ((senderId == userId1 && receiverId == userId2) ||
+            (senderId == userId2 && receiverId == userId1)) {
+          allDocs.add(WhisperModel.fromMap({
+            ...data,
+            'id': doc.id,
+          }));
+        }
+      }
+      // Sort by timestamp descending
+      allDocs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return allDocs;
+    });
   }
 
   Future<void> markWhisperDelivered(String whisperId) async {
@@ -119,23 +170,31 @@ class FirebaseService {
     }
 
     // Query letters where either user is sender, then filter for partner
-    return _firestore.collection('sealedLetters').where('senderId', whereIn: [userId1, userId2]).orderBy('revealAt', descending: false).snapshots().map((snapshot) {
-          final allDocs = <SealedLetterModel>[];
-          for (final doc in snapshot.docs) {
-            final data = doc.data();
-            final senderId = data['senderId'] as String?;
-            final receiverId = data['receiverId'] as String?;
+    // Remove orderBy to avoid index requirement, sort in memory instead
+    return _firestore
+        .collection('sealedLetters')
+        .where('senderId', whereIn: [userId1, userId2])
+        .snapshots()
+        .map((snapshot) {
+      final allDocs = <SealedLetterModel>[];
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final senderId = data['senderId'] as String?;
+        final receiverId = data['receiverId'] as String?;
 
-            // Only include letters between these two users
-            if ((senderId == userId1 && receiverId == userId2) || (senderId == userId2 && receiverId == userId1)) {
-              allDocs.add(SealedLetterModel.fromMap({
-                ...data,
-                'id': doc.id,
-              }));
-            }
-          }
-          return allDocs;
-        });
+        // Only include letters between these two users
+        if ((senderId == userId1 && receiverId == userId2) ||
+            (senderId == userId2 && receiverId == userId1)) {
+          allDocs.add(SealedLetterModel.fromMap({
+            ...data,
+            'id': doc.id,
+          }));
+        }
+      }
+      // Sort by revealAt ascending (earliest first)
+      allDocs.sort((a, b) => a.revealAt.compareTo(b.revealAt));
+      return allDocs;
+    });
   }
 
   Future<void> markLetterRevealed(String letterId) async {

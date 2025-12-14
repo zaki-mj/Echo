@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../services/firebase_service.dart';
 import '../models/whisper_model.dart';
-import '../models/sealed_letter_model.dart';
+import '../models/settings_model.dart';
 import '../widgets/whisper_bubble.dart';
 
 class ChatPage extends StatefulWidget {
@@ -20,6 +21,7 @@ class _ChatPageState extends State<ChatPage> {
   final ScrollController _scrollController = ScrollController();
   List<WhisperModel> _whispers = [];
   Timer? _sealedLetterCheckTimer;
+  String? _lastWhisperId; // Track last whisper to detect new ones
 
   @override
   void initState() {
@@ -46,8 +48,24 @@ class _ChatPageState extends State<ChatPage> {
         .watchWhispers(currentUserId, partnerId)
         .listen((whispers) {
       if (mounted) {
+        final reversedWhispers = whispers.reversed.toList();
+        
+        // Check for new messages from partner
+        if (_lastWhisperId != null && reversedWhispers.isNotEmpty) {
+          final latestWhisper = reversedWhispers.first;
+          if (latestWhisper.id != _lastWhisperId && 
+              latestWhisper.senderId == partnerId) {
+            // New message from partner - trigger notification/haptic
+            _onNewMessage(latestWhisper, settings);
+          }
+        }
+        
+        if (reversedWhispers.isNotEmpty) {
+          _lastWhisperId = reversedWhispers.first.id;
+        }
+        
         setState(() {
-          _whispers = whispers.reversed.toList();
+          _whispers = reversedWhispers;
         });
         _scrollToBottom();
       }
@@ -97,6 +115,43 @@ class _ChatPageState extends State<ChatPage> {
 
     await _firebaseService.sendWhisper(whisper);
     _messageController.clear();
+  }
+
+  void _onNewMessage(WhisperModel whisper, SettingsModel settings) {
+    // Haptic feedback
+    HapticFeedback.mediumImpact();
+    
+    // Show notification
+    if (mounted) {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final currentUserId = appProvider.currentUserId;
+      if (currentUserId == null) return;
+      
+      // Determine partner name based on who sent the message
+      final partnerName = whisper.senderId == settings.maleUserId
+          ? settings.maleNickname
+          : settings.femaleNickname;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.message, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '$partnerName: ${whisper.text.length > 30 ? whisper.text.substring(0, 30) + "..." : whisper.text}',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: appProvider.accentColor,
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _checkSealedLetters() async {

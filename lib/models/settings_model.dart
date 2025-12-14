@@ -1,11 +1,16 @@
+import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+enum Gender { male, female }
+
 class SettingsModel {
   final String pairId;
-  final String user1Id; // First user's Firebase UID
-  final String user2Id; // Second user's Firebase UID (can be empty initially)
-  final String user1Nickname;
-  final String user2Nickname;
-  final DateTime? user1Birthdate;
-  final DateTime? user2Birthdate;
+  final String maleUserId; // Male user's Firebase UID
+  final String femaleUserId; // Female user's Firebase UID (can be empty initially)
+  final String maleNickname;
+  final String femaleNickname;
+  final DateTime? maleBirthdate;
+  final DateTime? femaleBirthdate;
   final DateTime meetingDate;
   final int accentColorIndex; // 0-7 for 8 gothic options
   final bool isDarkMode;
@@ -14,15 +19,23 @@ class SettingsModel {
   final bool touchOfNightEnabled;
   final bool sealedLettersEnabled;
   final DateTime lastUpdated;
+  
+  // Legacy support - map to new structure
+  String get user1Id => maleUserId;
+  String get user2Id => femaleUserId;
+  String get user1Nickname => maleNickname;
+  String get user2Nickname => femaleNickname;
+  DateTime? get user1Birthdate => maleBirthdate;
+  DateTime? get user2Birthdate => femaleBirthdate;
 
   SettingsModel({
     required this.pairId,
-    required this.user1Id,
-    this.user2Id = '',
-    required this.user1Nickname,
-    required this.user2Nickname,
-    this.user1Birthdate,
-    this.user2Birthdate,
+    required this.maleUserId,
+    this.femaleUserId = '',
+    required this.maleNickname,
+    required this.femaleNickname,
+    this.maleBirthdate,
+    this.femaleBirthdate,
     required this.meetingDate,
     this.accentColorIndex = 0,
     this.isDarkMode = true,
@@ -35,25 +48,39 @@ class SettingsModel {
 
   // Helper method to get partner ID
   String? getPartnerId(String currentUserId) {
-    if (currentUserId == user1Id) return user2Id.isEmpty ? null : user2Id;
-    if (currentUserId == user2Id) return user1Id;
+    if (currentUserId == maleUserId) return femaleUserId.isEmpty ? null : femaleUserId;
+    if (currentUserId == femaleUserId) return maleUserId;
     return null;
   }
 
   // Helper method to check if user is part of this pair
   bool isUserInPair(String userId) {
-    return userId == user1Id || userId == user2Id;
+    return userId == maleUserId || userId == femaleUserId;
+  }
+  
+  // Get user's gender based on their ID
+  Gender? getUserGender(String userId) {
+    if (userId == maleUserId) return Gender.male;
+    if (userId == femaleUserId) return Gender.female;
+    return null;
+  }
+  
+  // Get partner's gender
+  Gender? getPartnerGender(String currentUserId) {
+    final partnerId = getPartnerId(currentUserId);
+    if (partnerId == null) return null;
+    return getUserGender(partnerId);
   }
 
   Map<String, dynamic> toMap() {
     return {
       'pairId': pairId,
-      'user1Id': user1Id,
-      'user2Id': user2Id,
-      'user1Nickname': user1Nickname,
-      'user2Nickname': user2Nickname,
-      'user1Birthdate': user1Birthdate?.toIso8601String(),
-      'user2Birthdate': user2Birthdate?.toIso8601String(),
+      'maleUserId': maleUserId,
+      'femaleUserId': femaleUserId,
+      'maleNickname': maleNickname,
+      'femaleNickname': femaleNickname,
+      'maleBirthdate': maleBirthdate?.toIso8601String(),
+      'femaleBirthdate': femaleBirthdate?.toIso8601String(),
       'meetingDate': meetingDate.toIso8601String(),
       'accentColorIndex': accentColorIndex,
       'isDarkMode': isDarkMode,
@@ -62,23 +89,50 @@ class SettingsModel {
       'touchOfNightEnabled': touchOfNightEnabled,
       'sealedLettersEnabled': sealedLettersEnabled,
       'lastUpdated': lastUpdated.toIso8601String(),
+      // Legacy support
+      'user1Id': maleUserId,
+      'user2Id': femaleUserId,
+      'user1Nickname': maleNickname,
+      'user2Nickname': femaleNickname,
+      'user1Birthdate': maleBirthdate?.toIso8601String(),
+      'user2Birthdate': femaleBirthdate?.toIso8601String(),
     };
   }
 
   factory SettingsModel.fromMap(Map<String, dynamic> map) {
+    // Support both new and legacy formats
+    // Safely parse DateTime fields with error handling
+    DateTime? parseDateTime(dynamic value) {
+      if (value == null) return null;
+      try {
+        if (value is String) {
+          return DateTime.parse(value);
+        } else if (value is DateTime) {
+          return value;
+        } else if (value is Timestamp) {
+          return value.toDate();
+        }
+      } catch (e) {
+        debugPrint('Error parsing DateTime: $value, error: $e');
+      }
+      return null;
+    }
+    
+    final meetingDateValue = map['meetingDate'];
+    final meetingDate = parseDateTime(meetingDateValue) ?? DateTime.now();
+    
+    final lastUpdatedValue = map['lastUpdated'];
+    final lastUpdated = parseDateTime(lastUpdatedValue) ?? DateTime.now();
+    
     return SettingsModel(
       pairId: map['pairId'] ?? '',
-      user1Id: map['user1Id'] ?? '',
-      user2Id: map['user2Id'] ?? '',
-      user1Nickname: map['user1Nickname'] ?? '',
-      user2Nickname: map['user2Nickname'] ?? '',
-      user1Birthdate: map['user1Birthdate'] != null
-          ? DateTime.parse(map['user1Birthdate'])
-          : null,
-      user2Birthdate: map['user2Birthdate'] != null
-          ? DateTime.parse(map['user2Birthdate'])
-          : null,
-      meetingDate: DateTime.parse(map['meetingDate']),
+      maleUserId: map['maleUserId'] ?? map['user1Id'] ?? '',
+      femaleUserId: map['femaleUserId'] ?? map['user2Id'] ?? '',
+      maleNickname: map['maleNickname'] ?? map['user1Nickname'] ?? '',
+      femaleNickname: map['femaleNickname'] ?? map['user2Nickname'] ?? '',
+      maleBirthdate: parseDateTime(map['maleBirthdate'] ?? map['user1Birthdate']),
+      femaleBirthdate: parseDateTime(map['femaleBirthdate'] ?? map['user2Birthdate']),
+      meetingDate: meetingDate,
       accentColorIndex: map['accentColorIndex'] ?? 0,
       isDarkMode: map['isDarkMode'] ?? true,
       sayHiInterval: Duration(
@@ -89,18 +143,18 @@ class SettingsModel {
       ),
       touchOfNightEnabled: map['touchOfNightEnabled'] ?? true,
       sealedLettersEnabled: map['sealedLettersEnabled'] ?? true,
-      lastUpdated: DateTime.parse(map['lastUpdated']),
+      lastUpdated: lastUpdated,
     );
   }
 
   SettingsModel copyWith({
     String? pairId,
-    String? user1Id,
-    String? user2Id,
-    String? user1Nickname,
-    String? user2Nickname,
-    DateTime? user1Birthdate,
-    DateTime? user2Birthdate,
+    String? maleUserId,
+    String? femaleUserId,
+    String? maleNickname,
+    String? femaleNickname,
+    DateTime? maleBirthdate,
+    DateTime? femaleBirthdate,
     DateTime? meetingDate,
     int? accentColorIndex,
     bool? isDarkMode,
@@ -112,12 +166,12 @@ class SettingsModel {
   }) {
     return SettingsModel(
       pairId: pairId ?? this.pairId,
-      user1Id: user1Id ?? this.user1Id,
-      user2Id: user2Id ?? this.user2Id,
-      user1Nickname: user1Nickname ?? this.user1Nickname,
-      user2Nickname: user2Nickname ?? this.user2Nickname,
-      user1Birthdate: user1Birthdate ?? this.user1Birthdate,
-      user2Birthdate: user2Birthdate ?? this.user2Birthdate,
+      maleUserId: maleUserId ?? this.maleUserId,
+      femaleUserId: femaleUserId ?? this.femaleUserId,
+      maleNickname: maleNickname ?? this.maleNickname,
+      femaleNickname: femaleNickname ?? this.femaleNickname,
+      maleBirthdate: maleBirthdate ?? this.maleBirthdate,
+      femaleBirthdate: femaleBirthdate ?? this.femaleBirthdate,
       meetingDate: meetingDate ?? this.meetingDate,
       accentColorIndex: accentColorIndex ?? this.accentColorIndex,
       isDarkMode: isDarkMode ?? this.isDarkMode,

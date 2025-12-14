@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
 import '../theme/gothic_theme.dart';
 import '../utils/data_export.dart';
+import '../models/settings_model.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -14,10 +15,10 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _user1NicknameController;
-  late TextEditingController _user2NicknameController;
-  DateTime? _user1Birthdate;
-  DateTime? _user2Birthdate;
+  late TextEditingController _maleNicknameController;
+  late TextEditingController _femaleNicknameController;
+  DateTime? _maleBirthdate;
+  DateTime? _femaleBirthdate;
   DateTime? _meetingDate;
   int _accentColorIndex = 0;
   bool _isDarkMode = true;
@@ -29,28 +30,29 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final settings = appProvider.settings;
+    final currentUserId = appProvider.currentUserId;
 
-    if (settings != null) {
-      _user1NicknameController = TextEditingController(text: settings.user1Nickname);
-      _user2NicknameController = TextEditingController(text: settings.user2Nickname);
-      _user1Birthdate = settings.user1Birthdate;
-      _user2Birthdate = settings.user2Birthdate;
+    if (settings != null && currentUserId != null) {
+      _maleNicknameController = TextEditingController(text: settings.maleNickname);
+      _femaleNicknameController = TextEditingController(text: settings.femaleNickname);
+      _maleBirthdate = settings.maleBirthdate;
+      _femaleBirthdate = settings.femaleBirthdate;
       _meetingDate = settings.meetingDate;
       _accentColorIndex = settings.accentColorIndex;
       _isDarkMode = settings.isDarkMode;
       _touchOfNightEnabled = settings.touchOfNightEnabled;
       _sealedLettersEnabled = settings.sealedLettersEnabled;
     } else {
-      _user1NicknameController = TextEditingController();
-      _user2NicknameController = TextEditingController();
+      _maleNicknameController = TextEditingController();
+      _femaleNicknameController = TextEditingController();
       _meetingDate = DateTime.now();
     }
   }
 
   @override
   void dispose() {
-    _user1NicknameController.dispose();
-    _user2NicknameController.dispose();
+    _maleNicknameController.dispose();
+    _femaleNicknameController.dispose();
     super.dispose();
   }
 
@@ -84,19 +86,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (currentSettings == null || currentUserId == null) return;
 
-    // Determine if current user is user1 or user2
-    String? user2Id = currentSettings.user2Id;
-    if (currentSettings.user1Id != currentUserId && user2Id.isEmpty) {
-      // Current user is joining as user2
-      user2Id = currentUserId;
-    }
-
     final newSettings = currentSettings.copyWith(
-      user2Id: user2Id,
-      user1Nickname: _user1NicknameController.text.trim(),
-      user2Nickname: _user2NicknameController.text.trim(),
-      user1Birthdate: _user1Birthdate,
-      user2Birthdate: _user2Birthdate,
+      maleNickname: _maleNicknameController.text.trim(),
+      femaleNickname: _femaleNicknameController.text.trim(),
+      maleBirthdate: _maleBirthdate,
+      femaleBirthdate: _femaleBirthdate,
       meetingDate: _meetingDate!,
       accentColorIndex: _accentColorIndex,
       isDarkMode: _isDarkMode,
@@ -141,13 +135,57 @@ class _SettingsPageState extends State<SettingsPage> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // Nicknames
+                // Pair Code Display
+                if (settings.pairId.isNotEmpty)
+                  Card(
+                    color: accentColor.withOpacity(0.1),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.vpn_key, color: accentColor),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Pair Code',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: accentColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            settings.pairId.replaceFirst('pair_', '').toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 2,
+                              color: accentColor,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Share this code with your partner to connect',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 24),
+
+                // Nicknames (Gender-based)
                 TextFormField(
-                  controller: _user1NicknameController,
+                  controller: _maleNicknameController,
                   decoration: const InputDecoration(
-                    labelText: 'Your Nickname',
+                    labelText: 'Male Nickname',
                     hintText: 'e.g., Dracula',
                     border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.male),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -158,11 +196,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
-                  controller: _user2NicknameController,
+                  controller: _femaleNicknameController,
                   decoration: const InputDecoration(
-                    labelText: 'Partner\'s Nickname',
+                    labelText: 'Female Nickname',
                     hintText: 'e.g., Mina',
                     border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.female),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -175,25 +214,25 @@ class _SettingsPageState extends State<SettingsPage> {
 
                 // Birthdates
                 ListTile(
-                  title: const Text('Your Birthdate'),
+                  title: const Text('Male Birthdate'),
                   subtitle: Text(
-                    _user1Birthdate != null ? DateFormat('MMMM d, y').format(_user1Birthdate!) : 'Not set',
+                    _maleBirthdate != null ? DateFormat('MMMM d, y').format(_maleBirthdate!) : 'Not set',
                   ),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () => _selectDate(
                     context,
-                    (date) => setState(() => _user1Birthdate = date),
+                    (date) => setState(() => _maleBirthdate = date),
                   ),
                 ),
                 ListTile(
-                  title: const Text('Partner\'s Birthdate'),
+                  title: const Text('Female Birthdate'),
                   subtitle: Text(
-                    _user2Birthdate != null ? DateFormat('MMMM d, y').format(_user2Birthdate!) : 'Not set',
+                    _femaleBirthdate != null ? DateFormat('MMMM d, y').format(_femaleBirthdate!) : 'Not set',
                   ),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () => _selectDate(
                     context,
-                    (date) => setState(() => _user2Birthdate = date),
+                    (date) => setState(() => _femaleBirthdate = date),
                   ),
                 ),
                 const SizedBox(height: 16),

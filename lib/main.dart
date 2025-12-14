@@ -8,6 +8,7 @@ import 'pages/chat_page.dart';
 import 'pages/calendar_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/sealed_letters_page.dart';
+import 'pages/pairing_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,7 +52,7 @@ class RavenApp extends StatelessWidget {
               final theme = appProvider.isInitialized ? appProvider.theme : GothicTheme.getDarkTheme(0);
 
               return MaterialApp(
-                title: 'Raven - Eternal Bond',
+                title: 'Raven',
                 theme: theme,
                 debugShowCheckedModeBanner: false,
                 home: const MainScreen(),
@@ -61,6 +62,7 @@ class RavenApp extends StatelessWidget {
                   '/calendar': (context) => const CalendarPage(),
                   '/settings': (context) => const SettingsPage(),
                   '/sealed-letters': (context) => const SealedLettersPage(),
+                  '/pairing': (context) => const PairingPage(),
                 },
               );
             },
@@ -129,30 +131,37 @@ class _MainScreenState extends State<MainScreen> {
           );
         }
 
-        // Check if settings are initialized
-        if (appProvider.settings == null) {
+        // Check if settings are initialized or if pairing is needed
+        if (appProvider.settings == null || appProvider.needsPairing) {
           return Scaffold(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const CircularProgressIndicator(),
+                  if (appProvider.settings == null)
+                    const CircularProgressIndicator()
+                  else
+                    Icon(
+                      Icons.link_off,
+                      size: 64,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
                   const SizedBox(height: 24),
                   Text(
-                    'Initializing...',
+                    appProvider.settings == null ? 'Initializing...' : 'Pairing Required',
                     style: TextStyle(
                       color: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white70,
                     ),
                   ),
                   const SizedBox(height: 24),
-                  TextButton(
+                  ElevatedButton(
                     onPressed: () {
                       if (mounted) {
-                        Navigator.pushNamed(context, '/settings');
+                        Navigator.pushNamed(context, '/pairing');
                       }
                     },
-                    child: const Text('Configure Settings'),
+                    child: const Text('Pair Device'),
                   ),
                 ],
               ),

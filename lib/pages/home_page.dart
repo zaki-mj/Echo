@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../providers/app_provider.dart';
 import '../services/firebase_service.dart';
 import '../models/mood_model.dart';
+import '../models/settings_model.dart';
 import '../utils/moon_phase.dart';
 import '../widgets/mood_widget.dart';
 import '../widgets/whisper_preview_widget.dart';
@@ -35,6 +36,10 @@ class _HomePageState extends State<HomePage> {
 
     final partnerId = settings.getPartnerId(currentUserId);
 
+    // Determine user's gender to assign moods correctly
+    final userGender = settings.getUserGender(currentUserId);
+    final isMale = userGender == Gender.male;
+
     // Load current user's mood
     _firebaseService.watchMoods(currentUserId).listen((moods) async {
       if (mounted && moods.isNotEmpty) {
@@ -43,16 +48,28 @@ class _HomePageState extends State<HomePage> {
         if (mood.resetAt != null && DateTime.now().isAfter(mood.resetAt!)) {
           // Mood has expired, user needs to set a new one
           setState(() {
-            _user1Mood = null;
+            if (isMale) {
+              _user1Mood = null;
+            } else {
+              _user2Mood = null;
+            }
           });
         } else {
           setState(() {
-            _user1Mood = mood;
+            if (isMale) {
+              _user1Mood = mood;
+            } else {
+              _user2Mood = mood;
+            }
           });
         }
       } else if (mounted) {
         setState(() {
-          _user1Mood = null;
+          if (isMale) {
+            _user1Mood = null;
+          } else {
+            _user2Mood = null;
+          }
         });
       }
     });
@@ -65,16 +82,28 @@ class _HomePageState extends State<HomePage> {
           // Check if mood needs to be reset
           if (mood.resetAt != null && DateTime.now().isAfter(mood.resetAt!)) {
             setState(() {
-              _user2Mood = null;
+              if (isMale) {
+                _user2Mood = null;
+              } else {
+                _user1Mood = null;
+              }
             });
           } else {
             setState(() {
-              _user2Mood = mood;
+              if (isMale) {
+                _user2Mood = mood;
+              } else {
+                _user1Mood = mood;
+              }
             });
           }
         } else if (mounted) {
           setState(() {
-            _user2Mood = null;
+            if (isMale) {
+              _user2Mood = null;
+            } else {
+              _user1Mood = null;
+            }
           });
         }
       });
@@ -89,7 +118,7 @@ class _HomePageState extends State<HomePage> {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     if (appProvider.settings?.touchOfNightEnabled ?? false) {
       HapticFeedback.mediumImpact();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -104,7 +133,7 @@ class _HomePageState extends State<HomePage> {
 
   void _showMoodSelector(BuildContext context, AppProvider appProvider) {
     final moods = ['bat', 'moon', 'rose', 'thorns', 'blood', 'crown', 'skull', 'star'];
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).cardColor,
@@ -255,58 +284,72 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 24),
 
-              // Side-by-side Moods
-              Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          // Allow user to set their mood
-                          _showMoodSelector(context, appProvider);
-                        },
-                        onDoubleTap: () {
-                          final partnerId = settings.getPartnerId(appProvider.currentUserId ?? '');
-                          if (partnerId != null && partnerId.isNotEmpty) {
-                            _handleMoodDoubleTap(settings.user2Nickname);
-                          }
-                        },
-                        child: MoodWidget(
-                          nickname: settings.user1Nickname,
-                          mood: _user1Mood,
-                          isCurrentUser: true,
+              // Side-by-side Moods (Gender-based)
+              Builder(
+                builder: (context) {
+                  final currentUserId = appProvider.currentUserId;
+                  if (currentUserId == null) return const SizedBox.shrink();
+
+                  final userGender = settings.getUserGender(currentUserId);
+                  final partnerId = settings.getPartnerId(currentUserId);
+
+                  // Determine which mood belongs to which user
+                  final isMale = userGender == Gender.male;
+                  final currentUserMood = isMale ? _user1Mood : _user2Mood;
+                  final partnerMood = isMale ? _user2Mood : _user1Mood;
+                  final currentUserNickname = isMale ? settings.maleNickname : settings.femaleNickname;
+                  final partnerNickname = isMale ? settings.femaleNickname : settings.maleNickname;
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            // Allow user to set their mood
+                            _showMoodSelector(context, appProvider);
+                          },
+                          onDoubleTap: () {
+                            if (partnerId != null && partnerId.isNotEmpty) {
+                              _handleMoodDoubleTap(partnerNickname);
+                            }
+                          },
+                          child: MoodWidget(
+                            nickname: currentUserNickname,
+                            mood: currentUserMood,
+                            isCurrentUser: true,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: GestureDetector(
-                        onDoubleTap: () => _handleMoodDoubleTap(
-                          settings.user1Nickname,
-                        ),
-                        child: MoodWidget(
-                          nickname: settings.user2Nickname,
-                          mood: _user2Mood,
-                          isCurrentUser: false,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: GestureDetector(
+                          onDoubleTap: () => _handleMoodDoubleTap(currentUserNickname),
+                          child: MoodWidget(
+                            nickname: partnerNickname,
+                            mood: partnerMood,
+                            isCurrentUser: false,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  );
+                },
+              ),
               const SizedBox(height: 24),
 
               // Quick Send Whisper
               ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/chat');
-                  },
-                  icon: const Icon(Icons.send),
-                  label: const Text('Send Whisper'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: accentColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
+                onPressed: () {
+                  Navigator.pushNamed(context, '/chat');
+                },
+                icon: const Icon(Icons.send),
+                label: const Text('Send Whisper'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: accentColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
+              ),
               const SizedBox(height: 24),
 
               // Today's Chat Preview
@@ -317,12 +360,12 @@ class _HomePageState extends State<HomePage> {
       },
     );
   }
-  
+
   // Helper widget to show moon phase in a custom AppBar if needed
   Widget _buildMoonPhaseHeader() {
     final moonEmoji = MoonPhase.getMoonEmoji(DateTime.now());
     final moonPhase = MoonPhase.getPhaseName(DateTime.now());
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -342,4 +385,3 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
-

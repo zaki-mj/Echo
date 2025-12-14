@@ -116,24 +116,109 @@ class _CalendarPageState extends State<CalendarPage> {
     return false;
   }
 
+  bool _isMeetingDate(DateTime date, SettingsModel settings) {
+    return date.month == settings.meetingDate.month &&
+        date.day == settings.meetingDate.day;
+  }
+
+  // Convert weekday to Sunday-first (7 = Sunday, 1 = Monday, etc.)
+  int _getSundayFirstWeekday(DateTime date) {
+    int weekday = date.weekday;
+    // Convert: Mon=1, Tue=2, ..., Sun=7 to Sun=0, Mon=1, ..., Sat=6
+    return weekday == 7 ? 0 : weekday;
+  }
+
   void _showDayDetails(DateTime date) {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final settings = appProvider.settings;
+    if (settings == null) return;
+    
     final dayData = _dayDataMap[date];
-    if (dayData == null) return;
+    final isBirthday = _isBirthday(date, settings);
+    final isMeetingDate = _isMeetingDate(date, settings);
+    final accentColor = appProvider.accentColor;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(DateFormat('MMMM d, y').format(date)),
+        title: Row(
+          children: [
+            if (isMeetingDate)
+              Icon(Icons.favorite, color: accentColor, size: 20),
+            if (isBirthday)
+              Icon(Icons.cake, color: accentColor, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(DateFormat('MMMM d, y').format(date)),
+            ),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (dayData.user1Mood != null)
-              Text('Mood: ${dayData.user1Mood!.mood}'),
-            if (dayData.user2Mood != null)
-              Text('Partner Mood: ${dayData.user2Mood!.mood}'),
-            const SizedBox(height: 8),
-            Text('Whispers: ${dayData.whisperCount}'),
+            if (isMeetingDate)
+              Container(
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.favorite, color: accentColor, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Night Bloods Crossed',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: accentColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (isBirthday)
+              Container(
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.cake, color: accentColor, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Birthday',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: accentColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (dayData != null) ...[
+              if (dayData.user1Mood != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('${settings.user1Nickname} Mood: ${dayData.user1Mood!.mood}'),
+                ),
+              if (dayData.user2Mood != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('${settings.user2Nickname} Mood: ${dayData.user2Mood!.mood}'),
+                ),
+              if (dayData.whisperCount > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text('Whispers: ${dayData.whisperCount}'),
+                ),
+            ] else
+              const Text('No data for this day'),
           ],
         ),
         actions: [
@@ -161,17 +246,37 @@ class _CalendarPageState extends State<CalendarPage> {
 
         final firstDayOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
         final lastDayOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
-        final firstDayWeekday = firstDayOfMonth.weekday;
+        final firstDayWeekday = _getSundayFirstWeekday(firstDayOfMonth);
         final daysInMonth = lastDayOfMonth.day;
+
+        // Generate year and month lists
+        final currentYear = DateTime.now().year;
+        final years = List.generate(50, (index) => currentYear - 25 + index);
+        final months = List.generate(12, (index) => index + 1);
+        final monthNames = [
+          'January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'
+        ];
 
         return Column(
           children: [
-            // Month Navigation Bar
+            // Month/Year Selection Bar
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Previous month button
                   IconButton(
                     icon: const Icon(Icons.chevron_left),
                     onPressed: () {
@@ -184,10 +289,54 @@ class _CalendarPageState extends State<CalendarPage> {
                       _loadMonthData();
                     },
                   ),
-                  Text(
-                    DateFormat('MMMM y').format(_selectedMonth),
-                    style: Theme.of(context).textTheme.titleLarge,
+                  
+                  // Month dropdown
+                  DropdownButton<int>(
+                    value: _selectedMonth.month,
+                    items: months.map((month) {
+                      return DropdownMenuItem(
+                        value: month,
+                        child: Text(monthNames[month - 1]),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedMonth = DateTime(
+                            _selectedMonth.year,
+                            value,
+                          );
+                        });
+                        _loadMonthData();
+                      }
+                    },
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
+                  
+                  // Year dropdown
+                  DropdownButton<int>(
+                    value: _selectedMonth.year,
+                    items: years.map((year) {
+                      return DropdownMenuItem(
+                        value: year,
+                        child: Text('$year'),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedMonth = DateTime(
+                            value,
+                            _selectedMonth.month,
+                          );
+                        });
+                        _loadMonthData();
+                      }
+                    },
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  
+                  // Next month button
                   IconButton(
                     icon: const Icon(Icons.chevron_right),
                     onPressed: () {
@@ -203,75 +352,143 @@ class _CalendarPageState extends State<CalendarPage> {
                 ],
               ),
             ),
+            
+            // Weekday headers (Sunday first)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                    .map((day) => Expanded(
+                          child: Text(
+                            day,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: accentColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ),
             Expanded(
               child: GridView.builder(
                 padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              crossAxisSpacing: 4,
-              mainAxisSpacing: 4,
-            ),
-            itemCount: firstDayWeekday - 1 + daysInMonth,
-            itemBuilder: (context, index) {
-              if (index < firstDayWeekday - 1) {
-                return const SizedBox.shrink();
-              }
-
-              final day = index - (firstDayWeekday - 1) + 1;
-              final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
-              final dayData = _dayDataMap[date];
-              final isBirthday = _isBirthday(date, settings);
-              final isToday = date.year == DateTime.now().year &&
-                  date.month == DateTime.now().month &&
-                  date.day == DateTime.now().day;
-
-              return GestureDetector(
-                onTap: () => _showDayDetails(date),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isToday
-                        ? accentColor.withOpacity(0.3)
-                        : Theme.of(context).cardColor,
-                    border: Border.all(
-                      color: isBirthday
-                          ? accentColor
-                          : Colors.transparent,
-                      width: 2,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '$day',
-                        style: TextStyle(
-                          fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                          color: isBirthday ? accentColor : null,
-                        ),
-                      ),
-                      if (dayData != null) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (dayData.user1Mood != null)
-                              Icon(Icons.bathtub, size: 12, color: accentColor),
-                            if (dayData.user2Mood != null)
-                              Icon(Icons.bathtub, size: 12, color: Colors.purple),
-                          ],
-                        ),
-                        if (dayData.whisperCount > 0)
-                          Text(
-                            '${dayData.whisperCount}',
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                      ],
-                    ],
-                  ),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                  crossAxisSpacing: 4,
+                  mainAxisSpacing: 4,
                 ),
-              );
-            },
+                itemCount: firstDayWeekday + daysInMonth,
+                itemBuilder: (context, index) {
+                  // Empty cells for days before the first day of month
+                  if (index < firstDayWeekday) {
+                    return const SizedBox.shrink();
+                  }
+
+                  final day = index - firstDayWeekday + 1;
+                  final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
+                  final dayData = _dayDataMap[date];
+                  final isBirthday = _isBirthday(date, settings);
+                  final isMeetingDate = _isMeetingDate(date, settings);
+                  final isToday = date.year == DateTime.now().year &&
+                      date.month == DateTime.now().month &&
+                      date.day == DateTime.now().day;
+
+                  // Determine background color based on priority
+                  Color? backgroundColor;
+                  Color borderColor = Colors.transparent;
+                  double borderWidth = 1;
+                  
+                  if (isMeetingDate) {
+                    // Meeting date gets special highlight
+                    backgroundColor = accentColor.withOpacity(0.4);
+                    borderColor = accentColor;
+                    borderWidth = 3;
+                  } else if (isBirthday) {
+                    // Birthday gets accent border
+                    backgroundColor = accentColor.withOpacity(0.2);
+                    borderColor = accentColor;
+                    borderWidth = 2;
+                  } else if (isToday) {
+                    // Today gets subtle highlight
+                    backgroundColor = accentColor.withOpacity(0.15);
+                  } else {
+                    backgroundColor = Theme.of(context).cardColor;
+                  }
+
+                  return GestureDetector(
+                    onTap: () => _showDayDetails(date),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: backgroundColor,
+                        border: Border.all(
+                          color: borderColor,
+                          width: borderWidth,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Day number with special indicators
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (isMeetingDate)
+                                Icon(
+                                  Icons.favorite,
+                                  size: 10,
+                                  color: accentColor,
+                                ),
+                              if (isBirthday)
+                                Icon(
+                                  Icons.cake,
+                                  size: 10,
+                                  color: accentColor,
+                                ),
+                              Text(
+                                '$day',
+                                style: TextStyle(
+                                  fontWeight: isToday || isMeetingDate || isBirthday
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: isMeetingDate || isBirthday
+                                      ? accentColor
+                                      : (isToday
+                                          ? accentColor
+                                          : null),
+                                  fontSize: isMeetingDate || isBirthday ? 16 : 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (dayData != null) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (dayData.user1Mood != null)
+                                  Icon(Icons.mood, size: 10, color: accentColor),
+                                if (dayData.user2Mood != null)
+                                  Icon(Icons.mood, size: 10, color: Colors.purple),
+                              ],
+                            ),
+                            if (dayData.whisperCount > 0)
+                              Text(
+                                '${dayData.whisperCount}',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: accentColor.withOpacity(0.8),
+                                ),
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ],

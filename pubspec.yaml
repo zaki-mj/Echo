@@ -1,4 +1,4 @@
-name: echo
+name: Raven
 description: "A new Flutter project."
 publish_to: 'none'
 
@@ -36,6 +36,7 @@ dependencies:
   path_provider: any
   permission_handler: any
   haptic_feedback: any
+  shared_preferences: any
 
 dev_dependencies:
   flutter_test:
