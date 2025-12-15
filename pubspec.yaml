@@ -37,6 +37,7 @@ dependencies:
   permission_handler: any
   haptic_feedback: any
   shared_preferences: any
+  vibration: ^3.1.4
 
 dev_dependencies:
   flutter_test:

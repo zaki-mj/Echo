@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'providers/app_provider.dart';
 import 'theme/gothic_theme.dart';
 import 'pages/home_page.dart';
@@ -83,6 +84,31 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
+  Future<void> _initFcm() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+
+      // Request notification permissions (especially important on iOS / Android 13+)
+      await messaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        sound: true,
+      );
+
+      final token = await messaging.getToken();
+      if (token != null) {
+        debugPrint('FCM registration token: $token');
+        // Copy this token into Firebase Console -> Cloud Messaging -> Test device
+      } else {
+        debugPrint('FCM token is null (permission not granted or error).');
+      }
+    } catch (e, st) {
+      debugPrint('Error initializing FCM: $e');
+      debugPrint('$st');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
@@ -115,6 +141,7 @@ class _MainScreenState extends State<MainScreen> {
                     onPressed: () async {
                       try {
                         await appProvider.signIn();
+                        await _initFcm();
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(

@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
+import 'package:vibration/vibration.dart';
 import '../providers/app_provider.dart';
 import '../services/firebase_service.dart';
 import '../models/mood_model.dart';
 import '../models/settings_model.dart';
+import '../models/poke_model.dart';
 import '../utils/moon_phase.dart';
 import '../widgets/mood_widget.dart';
 import '../widgets/whisper_preview_widget.dart';
@@ -20,11 +23,19 @@ class _HomePageState extends State<HomePage> {
   final FirebaseService _firebaseService = FirebaseService();
   MoodModel? _user1Mood;
   MoodModel? _user2Mood;
+  StreamSubscription<List<PokeModel>>? _pokeSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadMoods();
+    _listenForPokes();
+  }
+
+  @override
+  void dispose() {
+    _pokeSubscription?.cancel();
+    super.dispose();
   }
 
   void _loadMoods() {
@@ -114,21 +125,99 @@ class _HomePageState extends State<HomePage> {
     return DateTime.now().difference(meetingDate).inDays;
   }
 
-  Future<void> _handleMoodDoubleTap(String partnerNickname) async {
+  Future<void> _handleMoodDoubleTap(String partnerId, String partnerNickname) async {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    if (appProvider.settings?.touchOfNightEnabled ?? false) {
-      HapticFeedback.mediumImpact();
+    final settings = appProvider.settings;
+    final currentUserId = appProvider.currentUserId;
 
+    if (settings == null || currentUserId == null || partnerId.isEmpty) return;
+
+    // Local haptic feedback on sender's device (immediate response)
+    if (settings.touchOfNightEnabled) {
+      HapticFeedback.mediumImpact();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$partnerNickname poked you'),
+            content: Text('You poked $partnerNickname'),
             backgroundColor: appProvider.accentColor,
             duration: const Duration(seconds: 2),
           ),
         );
       }
     }
+
+    // Determine sender name based on gender
+    final senderName = currentUserId == settings.maleUserId
+        ? settings.maleNickname
+        : settings.femaleNickname;
+
+    // Create poke document so the partner's device can react (vibration + notification)
+    final poke = PokeModel(
+      id: '',
+      senderId: currentUserId,
+      receiverId: partnerId,
+      senderName: senderName,
+      timestamp: DateTime.now(),
+      isHandled: false,
+    );
+
+    await _firebaseService.sendPoke(poke);
+  }
+
+  void _listenForPokes() {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final currentUserId = appProvider.currentUserId;
+
+    if (currentUserId == null) return;
+
+    _pokeSubscription = _firebaseService.watchPokes(currentUserId).listen(
+      (pokes) async {
+        if (!mounted || pokes.isEmpty) return;
+
+        // Handle the most recent unhandled poke
+        pokes.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        final poke = pokes.first;
+
+        // Vibrate / haptic feedback on receiver device
+        try {
+          final hasVibrator = await Vibration.hasVibrator() ?? false;
+          if (hasVibrator) {
+            // Short double pulse
+            final hasAmplitude = await Vibration.hasAmplitudeControl() ?? false;
+            if (hasAmplitude) {
+              await Vibration.vibrate(
+                pattern: [0, 80, 60, 80],
+                intensities: [128, 255],
+              );
+            } else {
+              await Vibration.vibrate(pattern: [0, 80, 60, 80]);
+            }
+          } else {
+            // Fallback to built-in haptics
+            await HapticFeedback.heavyImpact();
+          }
+        } catch (_) {
+          // Fallback if vibration API fails
+          await HapticFeedback.heavyImpact();
+        }
+
+        if (!mounted) return;
+
+        final accentColor = appProvider.accentColor;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${poke.senderName} poked you'),
+            backgroundColor: accentColor,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // Mark poke as handled so it doesn't repeat
+        await _firebaseService.markPokeHandled(poke.id);
+      },
+    );
   }
 
   void _showMoodSelector(BuildContext context, AppProvider appProvider) {
@@ -310,7 +399,7 @@ class _HomePageState extends State<HomePage> {
                           },
                           onDoubleTap: () {
                             if (partnerId != null && partnerId.isNotEmpty) {
-                              _handleMoodDoubleTap(partnerNickname);
+                              _handleMoodDoubleTap(partnerId, partnerNickname);
                             }
                           },
                           child: MoodWidget(
@@ -323,7 +412,11 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: GestureDetector(
-                          onDoubleTap: () => _handleMoodDoubleTap(currentUserNickname),
+                          onDoubleTap: () {
+                            if (partnerId != null && partnerId.isNotEmpty) {
+                              _handleMoodDoubleTap(partnerId, currentUserNickname);
+                            }
+                          },
                           child: MoodWidget(
                             nickname: partnerNickname,
                             mood: partnerMood,

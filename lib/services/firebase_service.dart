@@ -8,6 +8,7 @@ import '../models/mood_model.dart';
 import '../models/whisper_model.dart';
 import '../models/sealed_letter_model.dart';
 import '../models/settings_model.dart';
+import '../models/poke_model.dart';
 
 class FirebaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -199,6 +200,32 @@ class FirebaseService {
 
   Future<void> markLetterRevealed(String letterId) async {
     await _firestore.collection('sealedLetters').doc(letterId).update({'isRevealed': true});
+  }
+
+  // Pokes (Touch of Night)
+  Future<String> sendPoke(PokeModel poke) async {
+    final docRef = await _firestore.collection('pokes').add(poke.toMap());
+    return docRef.id;
+  }
+
+  Stream<List<PokeModel>> watchPokes(String receiverId) {
+    return _firestore
+        .collection('pokes')
+        .where('receiverId', isEqualTo: receiverId)
+        .where('isHandled', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => PokeModel.fromMap({
+                ...doc.data(),
+                'id': doc.id,
+              }))
+          .toList();
+    });
+  }
+
+  Future<void> markPokeHandled(String pokeId) async {
+    await _firestore.collection('pokes').doc(pokeId).update({'isHandled': true});
   }
 
   // Storage for voice/photo
