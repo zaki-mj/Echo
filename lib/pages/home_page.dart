@@ -35,8 +35,7 @@ class _HomePageState extends State<HomePage> {
   // with 'repo' scope from your GitHub account settings and store it securely.
   // It is highly recommended to NOT store it in the source code.
   // For this example, we'll use a placeholder.
-  final String _githubToken = '//';
-
+  final String _githubToken = '//'; //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
 
   @override
   void initState() {
@@ -160,9 +159,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Determine sender name based on gender
-    final senderName = currentUserId == settings.maleUserId
-        ? settings.maleNickname
-        : settings.femaleNickname;
+    final senderName = currentUserId == settings.maleUserId ? settings.maleNickname : settings.femaleNickname;
 
     // Create poke document so the partner's device can react (vibration + notification)
     final poke = PokeModel(
@@ -331,7 +328,7 @@ class _HomePageState extends State<HomePage> {
 
     final partnerId = settings.getPartnerId(currentUserId);
     if (partnerId == null || partnerId.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cannot send notification: Partner not found.')),
       );
       return;
@@ -341,7 +338,7 @@ class _HomePageState extends State<HomePage> {
     final partnerFcmToken = partnerGender == Gender.male ? settings.maleFcmToken : settings.femaleFcmToken;
 
     if (partnerFcmToken == null || partnerFcmToken.isEmpty) {
-         ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cannot send notification: Partner has not enabled notifications.')),
       );
       return;
@@ -350,7 +347,7 @@ class _HomePageState extends State<HomePage> {
     final senderName = settings.getUserGender(currentUserId) == Gender.male ? settings.maleNickname : settings.femaleNickname;
 
     final url = Uri.parse('https://api.github.com/repos/$_githubUsername/$_githubRepo/dispatches');
-    
+
     final response = await http.post(
       url,
       headers: {
@@ -380,7 +377,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-    void _showNotificationDialog() {
+  void _showNotificationDialog() {
     final TextEditingController controller = TextEditingController();
 
     showDialog(
@@ -504,7 +501,7 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Expanded(
                         child: GestureDetector(
-                          onTap: () {
+                          onLongPress: () {
                             // Allow user to set their mood
                             _showMoodSelector(context, appProvider);
                           },

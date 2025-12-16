@@ -1,28 +1,53 @@
-name: Send Notification
+name: Send Push Notification
 
 on:
   repository_dispatch:
     types: [send-notification]
 
 jobs:
-  send:
+  send-notification:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
         with:
-          node-version: '18'
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      - name: Install dependencies
-        run: npm install firebase-admin
+      - name: 'Send FCM v1 Notification'
+        run: |
+          # Get the access token provided by the 'auth' action
+          TOKEN=$(gcloud auth print-access-token)
 
-      - name: Send notification
-        env:
-          FCM_SERVER_KEY: ${{ secrets.FCM_SERVER_KEY }}
-          MESSAGE: ${{ github.event.client_payload.message }}
-          TOKEN: ${{ github.event.client_payload.token }}
-          SENDER_NAME: ${{ github.event.client_payload.senderName }}
-        run: node scripts/send-notification.js
+          # Get the data from the dispatch event
+          FCM_TOKEN='${{ github.event.client_payload.token }}'
+          SENDER_NAME='${{ github.event.client_payload.senderName }}'
+          MESSAGE='${{ github.event.client_payload.message }}'
+
+          # IMPORTANT: Replace this with your actual Firebase Project ID
+          PROJECT_ID='echo-7870f'
+
+          # Construct the final JSON payload
+          JSON_PAYLOAD=$(cat <<EOF
+          {
+            "message": {
+              "token": "$FCM_TOKEN",
+              "notification": {
+                "title": "New Whisper from $SENDER_NAME",
+                "body": "$MESSAGE"
+              },
+              "data": {
+                "click_action": "FLUTTER_NOTIFICATION_CLICK"
+              }
+            }
+          }
+          EOF
+          )
+
+          # Make the API call using curl
+          curl -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://fcm.googleapis.com/v1/projects/$PROJECT_ID/messages:send" \
+            -d "$JSON_PAYLOAD"
+
+

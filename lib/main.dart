@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -11,22 +12,22 @@ import 'pages/settings_page.dart';
 import 'pages/sealed_letters_page.dart';
 import 'pages/pairing_page.dart';
 
+// Must be a top-level function (not a class method)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint("Handling a background message: ${message.messageId}");
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Try to initialize Firebase, but don't fail if it's not configured
   try {
-    // Check if Firebase is already initialized
-    Firebase.app();
-  } catch (e) {
-    // Firebase not initialized, try to initialize it
-    try {
-      await Firebase.initializeApp();
-    } catch (initError) {
-      // Firebase not configured - app will work in offline mode
-      debugPrint('Firebase not configured: $initError');
-      debugPrint('App will run in offline/demo mode');
-    }
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  } catch (initError) {
+    debugPrint('Firebase not configured: $initError');
+    debugPrint('App will run in offline/demo mode');
   }
 
   runApp(const RavenApp());
@@ -49,7 +50,6 @@ class RavenApp extends StatelessWidget {
         builder: (context) {
           return Consumer<AppProvider>(
             builder: (context, appProvider, _) {
-              // Use a default theme if appProvider isn't ready
               final theme = appProvider.isInitialized ? appProvider.theme : GothicTheme.getDarkTheme(0);
 
               return MaterialApp(
@@ -87,36 +87,46 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    _initFcm();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // We call _initFcm here after the first frame is built.
+        // It's also called after successful sign-in.
+      }
+    });
   }
 
+  // --- START: CORRECTED FCM INITIALIZATION LOGIC ---
   Future<void> _initFcm() async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+
     try {
       final messaging = FirebaseMessaging.instance;
+      final permissionSettings = await messaging.requestPermission();
 
-      // Request notification permissions (especially important on iOS / Android 13+)
-      await messaging.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        sound: true,
-      );
+      if (permissionSettings.authorizationStatus == AuthorizationStatus.authorized) {
+        debugPrint('User granted notification permission.');
 
-      final token = await messaging.getToken();
-      if (token != null) {
-        debugPrint('FCM registration token: $token');
-        final appProvider = Provider.of<AppProvider>(context, listen: false);
-        if (appProvider.settings != null && appProvider.currentUserId != null) {
-          await appProvider.saveFcmToken(token);
-        }
+        // Get the token and pass it to the provider immediately.
+        final fcmToken = await messaging.getToken();
+        appProvider.scheduleFcmTokenSave(fcmToken);
+
+        // Set up a listener for any future token refreshes.
+        messaging.onTokenRefresh.listen((refreshedToken) {
+          debugPrint('FCM Token refreshed. Scheduling save.');
+          appProvider.scheduleFcmTokenSave(refreshedToken);
+        }, onError: (err) {
+          debugPrint('Error on FCM token refresh: $err');
+        });
+      } else {
+        debugPrint('User declined or has not accepted notification permission.');
       }
 
+      // --- These listeners handle what happens when a message arrives ---
+
+      // When the app is in the foreground
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         debugPrint('Got a message whilst in the foreground!');
-        debugPrint('Message data: ${message.data}');
-
-        if (message.notification != null) {
-          debugPrint('Message also contained a notification: ${message.notification}');
+        if (message.notification != null && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('${message.notification!.title}\n${message.notification!.body}'),
@@ -125,9 +135,10 @@ class _MainScreenState extends State<MainScreen> {
         }
       });
 
+      // When the user taps a notification and opens the app
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         debugPrint('A new onMessageOpenedApp event was published!');
-        // Navigate to chat page
+        // Navigate to the chat page when a notification is tapped.
         setState(() {
           _currentIndex = 1;
         });
@@ -137,12 +148,13 @@ class _MainScreenState extends State<MainScreen> {
       debugPrint('$st');
     }
   }
+  // --- END: CORRECTED FCM INITIALIZATION LOGIC ---
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, appProvider, _) {
-        // Check if user is signed in
+        // --- ANONYMOUS SIGN-IN SCREEN ---
         if (appProvider.currentUserId == null) {
           return Scaffold(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -170,7 +182,10 @@ class _MainScreenState extends State<MainScreen> {
                     onPressed: () async {
                       try {
                         await appProvider.signIn();
-                        await _initFcm();
+                        // IMPORTANT: After sign-in, we immediately try to initialize FCM.
+                        if (mounted) {
+                          _initFcm();
+                        }
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -187,7 +202,7 @@ class _MainScreenState extends State<MainScreen> {
           );
         }
 
-        // Check if settings are initialized or if pairing is needed
+        // --- PAIRING SCREEN ---
         if (appProvider.settings == null || appProvider.needsPairing) {
           return Scaffold(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -225,13 +240,13 @@ class _MainScreenState extends State<MainScreen> {
           );
         }
 
+        // --- MAIN APP INTERFACE ---
         final pages = [
           const HomePage(),
           const ChatPage(),
           const CalendarPage(),
         ];
 
-        // Get the current page's title for the AppBar
         final pageTitles = [
           'Home',
           'Whispers',
@@ -241,7 +256,6 @@ class _MainScreenState extends State<MainScreen> {
         return Scaffold(
           appBar: AppBar(
             title: Text(pageTitles[_currentIndex]),
-            // Drawer icon will automatically appear when drawer is set
             automaticallyImplyLeading: true,
           ),
           drawer: _buildGothicDrawer(context, appProvider),
@@ -285,7 +299,6 @@ class _MainScreenState extends State<MainScreen> {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // Beautiful Header with gradient
           Container(
             height: 200,
             decoration: BoxDecoration(
@@ -301,7 +314,6 @@ class _MainScreenState extends State<MainScreen> {
             ),
             child: Stack(
               children: [
-                // Decorative moon/bat icon
                 Positioned(
                   right: -20,
                   top: -20,
@@ -311,7 +323,6 @@ class _MainScreenState extends State<MainScreen> {
                     color: Colors.white.withOpacity(0.1),
                   ),
                 ),
-                // Content
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
@@ -355,7 +366,7 @@ class _MainScreenState extends State<MainScreen> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                '${settings.user1Nickname} & ${settings.user2Nickname}',
+                                '${settings.maleNickname} & ${settings.femaleNickname}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 14,
@@ -372,11 +383,7 @@ class _MainScreenState extends State<MainScreen> {
               ],
             ),
           ),
-
-          // Menu Items
           const SizedBox(height: 8),
-
-          // Settings - Prominent
           _buildDrawerTile(
             context: context,
             icon: Icons.settings_rounded,
@@ -388,10 +395,7 @@ class _MainScreenState extends State<MainScreen> {
             },
             isHighlighted: false,
           ),
-
           const Divider(height: 1),
-
-          // Sealed Letters
           _buildDrawerTile(
             context: context,
             icon: Icons.mail_outline,
@@ -402,11 +406,9 @@ class _MainScreenState extends State<MainScreen> {
               Navigator.pushNamed(context, '/sealed-letters');
             },
           ),
-          Divider(
+          const Divider(
             height: 1,
           ),
-
-          // Sign Out
           _buildDrawerTile(
             context: context,
             icon: Icons.logout_rounded,
@@ -419,8 +421,6 @@ class _MainScreenState extends State<MainScreen> {
             },
             isDestructive: true,
           ),
-
-          // Footer info
         ],
       ),
     );
