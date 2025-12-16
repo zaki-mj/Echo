@@ -222,6 +222,12 @@ class AppProvider with ChangeNotifier {
     _settings = null;
     notifyListeners();
   }
+
+  Future<void> saveFcmToken(String token) async {
+    if (_pairId != null && _currentUserId != null) {
+      await _firebaseService.saveFcmToken(_pairId!, _currentUserId!);
+    }
+  }
   
   @override
   void dispose() {
@@ -229,4 +235,3 @@ class AppProvider with ChangeNotifier {
     super.dispose();
   }
 }
-

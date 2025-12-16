@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:vibration/vibration.dart';
+import 'package:http/http.dart' as http;
 import '../providers/app_provider.dart';
 import '../services/firebase_service.dart';
 import '../models/mood_model.dart';
@@ -24,6 +26,17 @@ class _HomePageState extends State<HomePage> {
   MoodModel? _user1Mood;
   MoodModel? _user2Mood;
   StreamSubscription<List<PokeModel>>? _pokeSubscription;
+
+  // TODO: Replace with your GitHub username and repository name
+  final String _githubUsername = 'zaki-mj';
+  final String _githubRepo = 'Echo';
+
+  // IMPORTANT: This is a placeholder. You must generate a Personal Access Token (PAT)
+  // with 'repo' scope from your GitHub account settings and store it securely.
+  // It is highly recommended to NOT store it in the source code.
+  // For this example, we'll use a placeholder.
+  final String _githubToken = '//';
+
 
   @override
   void initState() {
@@ -304,6 +317,104 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _sendNotification(String message) async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final settings = appProvider.settings;
+    final currentUserId = appProvider.currentUserId;
+
+    if (settings == null || currentUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot send notification: User not configured.')),
+      );
+      return;
+    }
+
+    final partnerId = settings.getPartnerId(currentUserId);
+    if (partnerId == null || partnerId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot send notification: Partner not found.')),
+      );
+      return;
+    }
+
+    final partnerGender = settings.getUserGender(partnerId);
+    final partnerFcmToken = partnerGender == Gender.male ? settings.maleFcmToken : settings.femaleFcmToken;
+
+    if (partnerFcmToken == null || partnerFcmToken.isEmpty) {
+         ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot send notification: Partner has not enabled notifications.')),
+      );
+      return;
+    }
+
+    final senderName = settings.getUserGender(currentUserId) == Gender.male ? settings.maleNickname : settings.femaleNickname;
+
+    final url = Uri.parse('https://api.github.com/repos/$_githubUsername/$_githubRepo/dispatches');
+    
+    final response = await http.post(
+      url,
+      headers: {
+        'Accept': 'application/vnd.github.everest-preview+json',
+        'Authorization': 'Bearer $_githubToken',
+      },
+      body: jsonEncode({
+        'event_type': 'send-notification',
+        'client_payload': {
+          'message': message,
+          'token': partnerFcmToken,
+          'senderName': senderName,
+        }
+      }),
+    );
+
+    if (mounted) {
+      if (response.statusCode == 204) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Notification sent!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send notification. Status: ${response.statusCode}\nBody: ${response.body}')),
+        );
+      }
+    }
+  }
+
+    void _showNotificationDialog() {
+    final TextEditingController controller = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Send a Notification'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Your message...',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (controller.text.isNotEmpty) {
+                  _sendNotification(controller.text);
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text('Send'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
@@ -432,11 +543,9 @@ class _HomePageState extends State<HomePage> {
 
               // Quick Send Whisper
               ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/chat');
-                },
+                onPressed: _showNotificationDialog,
                 icon: const Icon(Icons.send),
-                label: const Text('Send Whisper'),
+                label: const Text('Send Notification'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: accentColor,
                   foregroundColor: Colors.white,

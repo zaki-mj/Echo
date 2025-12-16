@@ -19,6 +19,8 @@ class SettingsModel {
   final bool touchOfNightEnabled;
   final bool sealedLettersEnabled;
   final DateTime lastUpdated;
+  final String? maleFcmToken;
+  final String? femaleFcmToken;
   
   // Legacy support - map to new structure
   String get user1Id => maleUserId;
@@ -44,6 +46,8 @@ class SettingsModel {
     this.touchOfNightEnabled = true,
     this.sealedLettersEnabled = true,
     required this.lastUpdated,
+    this.maleFcmToken,
+    this.femaleFcmToken,
   });
 
   // Helper method to get partner ID
@@ -89,6 +93,8 @@ class SettingsModel {
       'touchOfNightEnabled': touchOfNightEnabled,
       'sealedLettersEnabled': sealedLettersEnabled,
       'lastUpdated': lastUpdated.toIso8601String(),
+      'maleFcmToken': maleFcmToken,
+      'femaleFcmToken': femaleFcmToken,
       // Legacy support
       'user1Id': maleUserId,
       'user2Id': femaleUserId,
@@ -144,6 +150,8 @@ class SettingsModel {
       touchOfNightEnabled: map['touchOfNightEnabled'] ?? true,
       sealedLettersEnabled: map['sealedLettersEnabled'] ?? true,
       lastUpdated: lastUpdated,
+      maleFcmToken: map['maleFcmToken'],
+      femaleFcmToken: map['femaleFcmToken'],
     );
   }
 
@@ -163,6 +171,8 @@ class SettingsModel {
     bool? touchOfNightEnabled,
     bool? sealedLettersEnabled,
     DateTime? lastUpdated,
+    String? maleFcmToken,
+    String? femaleFcmToken,
   }) {
     return SettingsModel(
       pairId: pairId ?? this.pairId,
@@ -180,7 +190,8 @@ class SettingsModel {
       touchOfNightEnabled: touchOfNightEnabled ?? this.touchOfNightEnabled,
       sealedLettersEnabled: sealedLettersEnabled ?? this.sealedLettersEnabled,
       lastUpdated: lastUpdated ?? DateTime.now(),
+      maleFcmToken: maleFcmToken ?? this.maleFcmToken,
+      femaleFcmToken: femaleFcmToken ?? this.femaleFcmToken,
     );
   }
 }
-

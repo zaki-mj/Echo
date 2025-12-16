@@ -1,0 +1,28 @@
+name: Send Notification
+
+on:
+  repository_dispatch:
+    types: [send-notification]
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install firebase-admin
+
+      - name: Send notification
+        env:
+          FCM_SERVER_KEY: ${{ secrets.FCM_SERVER_KEY }}
+          MESSAGE: ${{ github.event.client_payload.message }}
+          TOKEN: ${{ github.event.client_payload.token }}
+          SENDER_NAME: ${{ github.event.client_payload.senderName }}
+        run: node scripts/send-notification.js

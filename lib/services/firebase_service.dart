@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../models/mood_model.dart';
 import '../models/whisper_model.dart';
 import '../models/sealed_letter_model.dart';
@@ -14,6 +15,8 @@ class FirebaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+
 
   // Initialize Firestore with offline persistence
   Future<void> initialize() async {
@@ -62,6 +65,27 @@ class FirebaseService {
     final snapshot = await _firestore.collection('pairs').doc(pairId).get();
     return snapshot.exists ? SettingsModel.fromMap(snapshot.data()!) : null;
   }
+
+    // FCM Token
+  Future<void> saveFcmToken(String pairId, String userId) async {
+    final token = await _messaging.getToken();
+    if (token != null) {
+      final settings = await getSettings(pairId);
+      if (settings != null) {
+        Map<String, dynamic> updateData = {};
+        if (userId == settings.maleUserId && token != settings.maleFcmToken) {
+          updateData['maleFcmToken'] = token;
+        } else if (userId == settings.femaleUserId && token != settings.femaleFcmToken) {
+          updateData['femaleFcmToken'] = token;
+        }
+
+        if (updateData.isNotEmpty) {
+          await _firestore.collection('pairs').doc(pairId).update(updateData);
+        }
+      }
+    }
+  }
+
 
   // Moods
   Future<void> saveMood(MoodModel mood) async {

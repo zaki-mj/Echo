@@ -84,6 +84,12 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    _initFcm();
+  }
+
   Future<void> _initFcm() async {
     try {
       final messaging = FirebaseMessaging.instance;
@@ -99,10 +105,33 @@ class _MainScreenState extends State<MainScreen> {
       final token = await messaging.getToken();
       if (token != null) {
         debugPrint('FCM registration token: $token');
-        // Copy this token into Firebase Console -> Cloud Messaging -> Test device
-      } else {
-        debugPrint('FCM token is null (permission not granted or error).');
+        final appProvider = Provider.of<AppProvider>(context, listen: false);
+        if (appProvider.settings != null && appProvider.currentUserId != null) {
+          await appProvider.saveFcmToken(token);
+        }
       }
+
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        debugPrint('Got a message whilst in the foreground!');
+        debugPrint('Message data: ${message.data}');
+
+        if (message.notification != null) {
+          debugPrint('Message also contained a notification: ${message.notification}');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${message.notification!.title}\n${message.notification!.body}'),
+            ),
+          );
+        }
+      });
+
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        debugPrint('A new onMessageOpenedApp event was published!');
+        // Navigate to chat page
+        setState(() {
+          _currentIndex = 1;
+        });
+      });
     } catch (e, st) {
       debugPrint('Error initializing FCM: $e');
       debugPrint('$st');
