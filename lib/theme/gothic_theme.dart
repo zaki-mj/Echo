@@ -9,13 +9,12 @@ class GothicTheme {
     Color(0xFF2F4F4F), // Dark Slate Gray
     Color(0xFF8B4513), // Saddle Brown
     Color(0xFF556B2F), // Dark Olive Green
-    Color(0xFF483D8B), // Dark Slate Blue
-    Color(0xFF8B0000), // Crimson
+    Color(0xFF483D8B), // Dark Slate Blue // Crimson
   ];
 
   static ThemeData getDarkTheme(int accentIndex) {
     final accentColor = accentColors[accentIndex.clamp(0, 7)];
-    
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
@@ -74,7 +73,7 @@ class GothicTheme {
 
   static ThemeData getLightTheme(int accentIndex) {
     final accentColor = accentColors[accentIndex.clamp(0, 7)];
-    
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
@@ -131,4 +130,3 @@ class GothicTheme {
     );
   }
 }
-

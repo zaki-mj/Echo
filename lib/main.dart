@@ -305,14 +305,6 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        'Eternal Bond',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 16,
-                          letterSpacing: 1,
-                        ),
-                      ),
                       if (settings != null) ...[
                         const SizedBox(height: 16),
                         Container(
@@ -360,13 +352,12 @@ class _MainScreenState extends State<MainScreen> {
             context: context,
             icon: Icons.settings_rounded,
             title: 'Settings',
-            subtitle: 'Configure your eternal bond',
             accentColor: accentColor,
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/settings');
             },
-            isHighlighted: true,
+            isHighlighted: false,
           ),
 
           const Divider(height: 1),
@@ -376,30 +367,15 @@ class _MainScreenState extends State<MainScreen> {
             context: context,
             icon: Icons.mail_outline,
             title: 'Sealed Letters',
-            subtitle: 'Time-locked messages',
             accentColor: accentColor,
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/sealed-letters');
             },
           ),
-
-          // Home
-          _buildDrawerTile(
-            context: context,
-            icon: Icons.home_outlined,
-            title: 'Home',
-            subtitle: 'Return to home',
-            accentColor: accentColor,
-            onTap: () {
-              Navigator.pop(context);
-              setState(() {
-                _currentIndex = 0;
-              });
-            },
+          Divider(
+            height: 1,
           ),
-
-          const Divider(height: 1),
 
           // Sign Out
           _buildDrawerTile(
@@ -415,20 +391,7 @@ class _MainScreenState extends State<MainScreen> {
             isDestructive: true,
           ),
 
-          const SizedBox(height: 16),
-
           // Footer info
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'Version 1.0.0',
-              style: TextStyle(
-                color: Theme.of(context).textTheme.bodySmall?.color,
-                fontSize: 12,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
         ],
       ),
     );

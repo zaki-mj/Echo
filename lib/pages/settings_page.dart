@@ -183,7 +183,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   controller: _maleNicknameController,
                   decoration: const InputDecoration(
                     labelText: 'Male Nickname',
-                    hintText: 'e.g., Dracula',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.male),
                   ),
@@ -199,7 +198,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   controller: _femaleNicknameController,
                   decoration: const InputDecoration(
                     labelText: 'Female Nickname',
-                    hintText: 'e.g., Mina',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.female),
                   ),
@@ -259,7 +257,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
-                  children: List.generate(8, (index) {
+                  children: List.generate(7, (index) {
                     return GestureDetector(
                       onTap: () => setState(() => _accentColorIndex = index),
                       child: Container(
